@@ -20,7 +20,7 @@ Add this to your `shard.yml`:
 ```yaml
 dependencies:
   starlark:
-    git: https://github.com/yourusername/starlark.git
+    github: ralsina/starlark-crystal
 ```
 
 Then run:
