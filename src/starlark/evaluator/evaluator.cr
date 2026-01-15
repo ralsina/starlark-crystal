@@ -17,6 +17,16 @@ module Starlark
       evaluate_expr(expr)
     end
 
+    def eval_stmt(source : String) : Value?
+      parser = Parser.new(source)
+      stmt = parser.parse_statement
+      evaluate_stmt(stmt)
+    end
+
+    def get_global(name : String) : Value
+      @globals[name]? || raise "Undefined variable: #{name}"
+    end
+
     private def evaluate_expr(expr : AST::Expr) : Value
       case expr
       when AST::LiteralNone
@@ -31,9 +41,85 @@ module Starlark
         lookup_variable(expr.name)
       when AST::BinaryOp
         evaluate_binary_op(expr)
+      when AST::List
+        evaluate_list(expr)
       else
         raise "Unknown expression type: #{expr.class}"
       end
+    end
+
+    private def evaluate_stmt(stmt : AST::Stmt) : Value?
+      case stmt
+      when AST::Assign
+        value = evaluate_expr(stmt.value)
+        @globals[stmt.target.as(AST::Identifier).name] = value
+        nil
+      when AST::ExprStmt
+        evaluate_expr(stmt.expr)
+      when AST::If
+        evaluate_if(stmt)
+      when AST::For
+        evaluate_for(stmt)
+      when AST::Return
+        evaluate_return(stmt)
+      when AST::Def
+        evaluate_def(stmt)
+      when AST::Pass
+        nil
+      else
+        raise "Unknown statement type: #{stmt.class}"
+      end
+    end
+
+    private def evaluate_if(stmt : AST::If) : Value?
+      if evaluate_expr(stmt.condition).truth
+        stmt.then_block.each { |statement| evaluate_stmt(statement) }
+      else
+        stmt.elif_blocks.each do |cond, body|
+          if evaluate_expr(cond).truth
+            body.each { |statement| evaluate_stmt(statement) }
+            return nil
+          end
+        end
+
+        if else_block = stmt.else_block
+          else_block.each { |statement| evaluate_stmt(statement) }
+        end
+      end
+      nil
+    end
+
+    private def evaluate_for(stmt : AST::For) : Value?
+      iterable = evaluate_expr(stmt.iterable)
+      var_name = stmt.var.name
+
+      case iterable.type
+      when "list"
+        iterable.as_list.each do |item|
+          @globals[var_name] = item
+          stmt.body.each { |statement| evaluate_stmt(statement) }
+        end
+      else
+        raise "Cannot iterate over #{iterable.type}"
+      end
+
+      nil
+    end
+
+    private def evaluate_return(stmt : AST::Return) : Value?
+      if value = stmt.value
+        evaluate_expr(value)
+      else
+        Value.none
+      end
+    end
+
+    private def evaluate_def(stmt : AST::Def) : Value?
+      # Create a function value
+      # For now, just store the AST node
+      # TODO: Implement proper function closure
+      @globals[stmt.name] = Value.new(stmt) # Temporarily store AST
+      nil
     end
 
     private def evaluate_binary_op(expr : AST::BinaryOp) : Value
@@ -127,6 +213,11 @@ module Starlark
       else
         raise "Unknown logical operator: #{op}"
       end
+    end
+
+    private def evaluate_list(expr : AST::List) : Value
+      elements = expr.elements.map { |e| evaluate_expr(e) }
+      Value.new(elements)
     end
 
     private def lookup_variable(name : String) : Value

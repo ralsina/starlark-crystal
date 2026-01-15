@@ -46,4 +46,21 @@ describe Starlark::Evaluator do
     result = evaluator.eval("1 != 2")
     result.as_bool.should eq(true)
   end
+
+  it "evaluates assignment statements" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.eval_stmt("x = 42")
+    evaluator.get_global("x").as_int.should eq(42)
+  end
+
+  it "evaluates if statements" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.eval_stmt("if True: x = 1")
+    evaluator.get_global("x").as_int.should eq(1)
+  end
+
+  it "evaluates for loops over ranges" do
+    # This will need range support first
+    # evaluator.eval_stmt("for i in range(3): x = i")
+  end
 end
