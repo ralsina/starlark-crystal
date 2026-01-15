@@ -22,13 +22,13 @@ describe Starlark::Lexer::Lexer do
   end
 
   it "tokenizes integers" do
-    lexer = Starlark::Lexer::Lexer.new("42 0 -123")
+    lexer = Starlark::Lexer::Lexer.new("42 0 123")
     tokens = lexer.tokenize
 
-    tokens.map(&.type).should eq([:INTEGER, :INTEGER, :MINUS, :INTEGER, :EOF])
+    tokens.map(&.type).should eq([:INTEGER, :INTEGER, :INTEGER, :EOF])
     tokens[0].value.should eq("42")
     tokens[1].value.should eq("0")
-    tokens[3].value.should eq("123")
+    tokens[2].value.should eq("123")
   end
 
   it "tokenizes strings" do

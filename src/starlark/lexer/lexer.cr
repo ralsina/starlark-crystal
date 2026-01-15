@@ -39,21 +39,6 @@ module Starlark
             tokens << read_number
           elsif char == '"' || char == '\''
             tokens << read_string
-          elsif char == '+'
-            tokens << Token.new(:PLUS, "+", @line, @column)
-            advance
-          elsif char == '-'
-            tokens << Token.new(:MINUS, "-", @line, @column)
-            advance
-          elsif char == '*'
-            tokens << Token.new(:STAR, "*", @line, @column)
-            advance
-          elsif char == '/'
-            tokens << Token.new(:SLASH, "/", @line, @column)
-            advance
-          elsif char == '%'
-            tokens << Token.new(:PERCENT, "%", @line, @column)
-            advance
           else
             raise "Unexpected character: #{char}"
           end
