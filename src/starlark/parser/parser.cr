@@ -12,7 +12,7 @@ module Starlark
     end
 
     def parse_expression : AST::Expr
-      parse_binary_op(0)
+      parse_not
     end
 
     def parse_statement : AST::Stmt
@@ -72,9 +72,9 @@ module Starlark
     end
 
     private def parse_unary : AST::Expr
-      # Handle unary operators
+      # Handle unary plus/minus (but NOT 'not' - that has lower precedence)
       tok = current_token
-      if !tok.nil? && (tok.type == :PLUS || tok.type == :MINUS || tok.type == :NOT)
+      if !tok.nil? && (tok.type == :PLUS || tok.type == :MINUS)
         advance
         expr = parse_unary
         AST::UnaryOp.new(tok.type, expr)
@@ -82,6 +82,18 @@ module Starlark
         # Handle primary expressions with postfix
         primary = parse_primary
         parse_postfix(primary)
+      end
+    end
+
+    private def parse_not : AST::Expr
+      # Handle 'not' operator (lower precedence than comparisons)
+      tok = current_token
+      if !tok.nil? && tok.type == :NOT
+        advance
+        expr = parse_not  # right-associative
+        AST::UnaryOp.new(:NOT, expr)
+      else
+        parse_binary_op(3)  # Start at comparison precedence
       end
     end
 

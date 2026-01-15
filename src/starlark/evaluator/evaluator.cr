@@ -241,16 +241,31 @@ module Starlark
     end
 
     private def evaluate_comparison(left : Value, right : Value, op : Symbol) : Value
-      left_int = left.as_int
-      right_int = right.as_int
-
-      result = case op
-               when :LT  then left_int < right_int
-               when :LTE then left_int <= right_int
-               when :GT  then left_int > right_int
-               when :GTE then left_int >= right_int
+      # Handle comparison based on types
+      result = if left.type == "int" && right.type == "int"
+                 left_int = left.as_int
+                 right_int = right.as_int
+                 case op
+                 when :LT  then left_int < right_int
+                 when :LTE then left_int <= right_int
+                 when :GT  then left_int > right_int
+                 when :GTE then left_int >= right_int
+                 else
+                   raise "Unknown comparison operator: #{op}"
+                 end
+               elsif left.type == "string" && right.type == "string"
+                 left_str = left.as_string
+                 right_str = right.as_string
+                 case op
+                 when :LT  then left_str < right_str
+                 when :LTE then left_str <= right_str
+                 when :GT  then left_str > right_str
+                 when :GTE then left_str >= right_str
+                 else
+                   raise "Unknown comparison operator: #{op}"
+                 end
                else
-                 raise "Unknown comparison operator: #{op}"
+                 raise "Cannot compare #{left.type} with #{right.type}"
                end
 
       Value.new(result)
