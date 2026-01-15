@@ -208,6 +208,8 @@ module Starlark
         Value.new(left.as_int + right.as_int)
       when {"string", "string"}
         Value.new(left.as_string + right.as_string)
+      when {"list", "list"}, {"list", "tuple"}, {"tuple", "list"}, {"tuple", "tuple"}
+        Value.new(left.as_list + right.as_list, left.type)
       else
         raise "Cannot add #{left.type} and #{right.type}"
       end
@@ -219,6 +221,10 @@ module Starlark
         Value.new(left.as_int * right.as_int)
       when {"string", "int"}
         Value.new(left.as_string * right.as_int.to_i)
+      when {"list", "int"}, {"tuple", "int"}
+        Value.new(left.as_list * right.as_int.to_i, left.type)
+      when {"int", "list"}, {"int", "tuple"}
+        Value.new(right.as_list * left.as_int.to_i, right.type)
       else
         raise "Cannot multiply #{left.type} and #{right.type}"
       end
