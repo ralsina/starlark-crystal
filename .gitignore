@@ -1,0 +1,15 @@
+# Worktrees
+.worktrees/
+
+# Crystal
+/.shards/
+/lib/
+*.dll
+*.dylib
+*.so
+*.a
+*.o
+*.bc
+
+# Build outputs
+/bin/
