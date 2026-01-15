@@ -101,6 +101,10 @@ module Starlark
         next if line.empty? || line.starts_with?("#")
         break if line.starts_with?("###")  # Stop at error expectation marker
 
+        # Strip ### comments from the line
+        line = line.split("###")[0].strip
+        next if line.empty?
+
         begin
           result = evaluator.eval_stmt(line)
           if result && result.type != "NoneType"
