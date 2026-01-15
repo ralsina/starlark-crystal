@@ -11,6 +11,7 @@ module Starlark
       "not" => :NOT, "or" => :OR, "pass" => :PASS,
       "return" => :RETURN, "while" => :WHILE,
       "True" => :TRUE, "False" => :FALSE, "None" => :NONE,
+      "not in" => :NOTIN,
     }
 
     class Lexer
@@ -59,10 +60,53 @@ module Starlark
         end
 
         value = chars.join
-        type = KEYWORDS[value]?
-        type ||= :IDENTIFIER
 
-        Token.new(type, value, start_line, start_column)
+        # Special case: check for "not in"
+        if value == "not"
+          # Save current position
+          saved_pos = @pos
+          saved_line = @line
+          saved_column = @column
+
+          # Skip whitespace
+          while @pos < @source.size && current_char.whitespace?
+            if current_char == '\n'
+              @line += 1
+              @column = 1
+            else
+              @column += 1
+            end
+            @pos += 1
+          end
+
+          # Check if next token is "in"
+          next_chars = [] of Char
+          start_line_in = @line
+          start_column_in = @column
+          while @pos < @source.size && (current_char.ascii_alphanumeric? || current_char == '_')
+            next_chars << current_char
+            advance
+          end
+          next_value = next_chars.join
+
+          if next_value == "in"
+            # Consume both "not" and "in", return NOTIN token
+            # Position is already advanced past "in"
+            Token.new(:NOTIN, "not in", start_line, start_column)
+          else
+            # Restore position and continue normally
+            @pos = saved_pos
+            @line = saved_line
+            @column = saved_column
+            type = KEYWORDS[value]?
+            type ||= :IDENTIFIER
+            Token.new(type, value, start_line, start_column)
+          end
+        else
+          type = KEYWORDS[value]?
+          type ||= :IDENTIFIER
+          Token.new(type, value, start_line, start_column)
+        end
       end
 
       private def consume_whitespace

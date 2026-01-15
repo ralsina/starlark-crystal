@@ -46,7 +46,7 @@ module Starlark
     PRECEDENCE = {
       :OR => 1,
       :AND => 2,
-      :IN => 3,  # not in is handled as "not (x in y)"
+      :NOTIN => 3, :IN => 3,
       :EQEQ => 3, :BANGEQ => 3, :LT => 3, :LTE => 3, :GT => 3, :GTE => 3,
       :PLUS => 4, :MINUS => 4,
       :STAR => 5, :SLASH => 5, :PERCENT => 5, :SLASHSLASH => 5,

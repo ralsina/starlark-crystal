@@ -179,6 +179,10 @@ module Starlark
         evaluate_logical(left_val, right_val, expr.op)
       when :IN
         evaluate_in(left_val, right_val)
+      when :NOTIN
+        # not in is the negation of in
+        in_result = evaluate_in(left_val, right_val)
+        Value.new(!in_result.truth)
       else
         raise "Unknown operator: #{expr.op}"
       end
