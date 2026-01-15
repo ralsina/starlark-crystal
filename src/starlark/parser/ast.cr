@@ -42,5 +42,15 @@ module Starlark
       def initialize(@name)
       end
     end
+
+    # Binary operations
+    class BinaryOp < Expr
+      getter left : Expr
+      getter op : Symbol
+      getter right : Expr
+
+      def initialize(@left, @op, @right)
+      end
+    end
   end
 end
