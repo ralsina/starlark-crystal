@@ -179,7 +179,12 @@ module Starlark
           end
         when '%'
           advance
-          Token.new(:PERCENT, "%", start_line, start_column)
+          if current_char == '='
+            advance
+            Token.new(:PERCENTEQ, "%=", start_line, start_column)
+          else
+            Token.new(:PERCENT, "%", start_line, start_column)
+          end
         when '='
           advance
           if current_char == '='

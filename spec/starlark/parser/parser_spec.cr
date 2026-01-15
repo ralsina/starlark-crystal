@@ -65,4 +65,43 @@ describe Starlark::Parser do
     binary.left.should be_a(Starlark::AST::LiteralInt)
     binary.right.should be_a(Starlark::AST::BinaryOp)
   end
+
+  it "parses assignment statements" do
+    parser = Starlark::Parser.new("x = 42")
+    stmt = parser.parse_statement
+
+    stmt.should be_a(Starlark::AST::Assign)
+    assign = stmt.as(Starlark::AST::Assign)
+    assign.target.should be_a(Starlark::AST::Identifier)
+    assign.target.as(Starlark::AST::Identifier).name.should eq("x")
+    assign.value.should be_a(Starlark::AST::LiteralInt)
+  end
+
+  it "parses if statements" do
+    parser = Starlark::Parser.new("if True: pass")
+    stmt = parser.parse_statement
+
+    stmt.should be_a(Starlark::AST::If)
+  end
+
+  it "parses for statements" do
+    parser = Starlark::Parser.new("for x in [1, 2, 3]: pass")
+    stmt = parser.parse_statement
+
+    stmt.should be_a(Starlark::AST::For)
+  end
+
+  it "parses return statements" do
+    parser = Starlark::Parser.new("return 42")
+    stmt = parser.parse_statement
+
+    stmt.should be_a(Starlark::AST::Return)
+  end
+
+  it "parses def statements" do
+    parser = Starlark::Parser.new("def foo(): return 1")
+    stmt = parser.parse_statement
+
+    stmt.should be_a(Starlark::AST::Def)
+  end
 end

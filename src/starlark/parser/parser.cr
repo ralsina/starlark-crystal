@@ -15,6 +15,33 @@ module Starlark
       parse_binary_op(0)
     end
 
+    def parse_statement : AST::Stmt
+      token = current_token
+
+      if token.nil?
+        raise "Unexpected end of input"
+      end
+
+      case token.type
+      when :IDENTIFIER
+        parse_assignment_or_expr_stmt
+      when :IF
+        parse_if
+      when :FOR
+        parse_for
+      when :RETURN
+        parse_return
+      when :DEF
+        parse_def
+      when :PASS
+        advance
+        AST::Pass.new
+      else
+        expr = parse_expression
+        AST::ExprStmt.new(expr)
+      end
+    end
+
     # Precedence levels (higher = tighter binding)
     PRECEDENCE = {
       :OR => 1,
@@ -80,6 +107,21 @@ module Starlark
         expr = parse_expression
         expect(:RPAREN)
         expr
+      when :LBRACKET
+        advance
+        elements = [] of AST::Expr
+        tok = current_token
+        if tok.nil? || tok.type != :RBRACKET
+          elements << parse_expression
+          comma_tok = current_token
+          while !comma_tok.nil? && comma_tok.type == :COMMA
+            advance
+            elements << parse_expression
+            comma_tok = current_token
+          end
+        end
+        expect(:RBRACKET)
+        AST::List.new(elements)
       else
         raise "Unexpected token in expression: #{token.type}"
       end
@@ -110,6 +152,157 @@ module Starlark
 
     private def advance
       @pos += 1
+    end
+
+    private def parse_assignment_or_expr_stmt : AST::Stmt
+      # Look ahead to see if this is an assignment
+      save_pos = @pos
+      identifier = parse_expression.as(AST::Identifier)
+
+      tok = current_token
+      if !tok.nil? && (tok.type == :ASSIGN || augmented_assign_op?)
+        # Assignment
+        op = tok.type
+        advance
+        value = parse_expression
+
+        if op == :ASSIGN
+          AST::Assign.new(identifier, value)
+        else
+          # Augmented assignment: x += 1 -> x = x + 1
+          inner_op = augmented_to_binary(op)
+          binary_expr = AST::BinaryOp.new(identifier, inner_op, value)
+          AST::Assign.new(identifier, binary_expr)
+        end
+      else
+        # Expression statement
+        @pos = save_pos
+        expr = parse_expression
+        AST::ExprStmt.new(expr)
+      end
+    end
+
+    private def augmented_assign_op? : Bool
+      tok = current_token
+      return false if tok.nil?
+      {:PLUSEQ, :MINUSEQ, :STAREQ, :SLASHEQ, :PERCENTEQ, :SLASHSLASHEQ}.includes?(tok.type)
+    end
+
+    private def augmented_to_binary(augmented_op : Symbol) : Symbol
+      case augmented_op
+      when :PLUSEQ       then :PLUS
+      when :MINUSEQ      then :MINUS
+      when :STAREQ       then :STAR
+      when :SLASHEQ      then :SLASH
+      when :PERCENTEQ    then :PERCENT
+      when :SLASHSLASHEQ then :SLASHSLASH
+      else                    raise "Unknown augmented operator: #{augmented_op}"
+      end
+    end
+
+    private def parse_if : AST::If
+      expect(:IF)
+      condition = parse_expression
+      expect(:COLON)
+      then_block = parse_block
+
+      elif_blocks = [] of Tuple(AST::Expr, Array(AST::Stmt))
+      tok = current_token
+      while !tok.nil? && tok.type == :ELIF
+        advance
+        elif_cond = parse_expression
+        expect(:COLON)
+        elif_body = parse_block
+        elif_blocks << {elif_cond, elif_body}
+        tok = current_token
+      end
+
+      else_block = nil
+      tok = current_token
+      if !tok.nil? && tok.type == :ELSE
+        advance
+        expect(:COLON)
+        else_block = parse_block
+      end
+
+      AST::If.new(condition, then_block, elif_blocks, else_block)
+    end
+
+    private def parse_for : AST::For
+      expect(:FOR)
+      tok = current_token
+      if tok.nil?
+        raise "Expected identifier after 'for'"
+      end
+      var_name = token_value(tok)
+      expect(:IDENTIFIER)
+      expect(:IN)
+      iterable = parse_expression
+      expect(:COLON)
+      body = parse_block
+
+      AST::For.new(AST::Identifier.new(var_name), iterable, body)
+    end
+
+    private def parse_return : AST::Return
+      expect(:RETURN)
+      value = nil
+      # Check if next token can start an expression
+      tok = current_token
+      if !tok.nil? && tok.type != :EOF && can_start_expression?
+        value = parse_expression
+      end
+      AST::Return.new(value)
+    end
+
+    private def can_start_expression? : Bool
+      tok = current_token
+      return false if tok.nil?
+      {:INTEGER, :STRING, :TRUE, :FALSE, :NONE, :IDENTIFIER, :LPAREN, :LBRACKET, :PLUS, :MINUS, :STAR}.includes?(tok.type)
+    end
+
+    private def parse_def : AST::Def
+      expect(:DEF)
+      tok = current_token
+      if tok.nil?
+        raise "Expected identifier after 'def'"
+      end
+      name = token_value(tok)
+      expect(:IDENTIFIER)
+      expect(:LPAREN)
+
+      params = [] of String
+      tok = current_token
+      if !tok.nil? && tok.type != :RPAREN
+        params << token_value(tok)
+        expect(:IDENTIFIER)
+        tok = current_token
+        while !tok.nil? && tok.type == :COMMA
+          advance
+          tok = current_token
+          if tok.nil?
+            raise "Expected identifier after comma"
+          end
+          params << token_value(tok)
+          expect(:IDENTIFIER)
+          tok = current_token
+        end
+      end
+
+      expect(:RPAREN)
+      expect(:COLON)
+      body = parse_block
+
+      AST::Def.new(name, params, body)
+    end
+
+    private def parse_block : Array(AST::Stmt)
+      # Simple block parsing: one statement or multiple on separate lines
+      # For now, just parse one indented statement
+      # TODO: Implement proper indentation-based parsing
+      stmts = [] of AST::Stmt
+      stmts << parse_statement
+      stmts
     end
   end
 end
