@@ -177,6 +177,8 @@ module Starlark
         evaluate_comparison(left_val, right_val, expr.op)
       when :AND, :OR
         evaluate_logical(left_val, right_val, expr.op)
+      when :IN
+        evaluate_in(left_val, right_val)
       else
         raise "Unknown operator: #{expr.op}"
       end
@@ -293,6 +295,29 @@ module Starlark
         Value.new(left.truth || right.truth)
       else
         raise "Unknown logical operator: #{op}"
+      end
+    end
+
+    private def evaluate_in(left : Value, right : Value) : Value
+      # Check if left is "in" right
+      case right.type
+      when "string"
+        if left.type != "string"
+          raise "Can only use 'in' with string and string"
+        end
+        Value.new(right.as_string.includes?(left.as_string))
+      when "list", "tuple"
+        right.as_list.each do |item|
+          return Value.new(true) if item == left
+        end
+        Value.new(false)
+      when "dict"
+        right.as_dict.each do |key, _|
+          return Value.new(true) if key == left
+        end
+        Value.new(false)
+      else
+        raise "Can only use 'in' with string, list, tuple, or dict"
       end
     end
 
