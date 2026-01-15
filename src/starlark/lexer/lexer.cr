@@ -10,6 +10,7 @@ module Starlark
       "in" => :IN, "lambda" => :LAMBDA, "load" => :LOAD,
       "not" => :NOT, "or" => :OR, "pass" => :PASS,
       "return" => :RETURN, "while" => :WHILE,
+      "True" => :TRUE, "False" => :FALSE, "None" => :NONE,
     }
 
     class Lexer
@@ -34,6 +35,25 @@ module Starlark
             consume_whitespace
           elsif char.ascii_letter? || char == '_'
             tokens << read_identifier_or_keyword
+          elsif char.ascii_number?
+            tokens << read_number
+          elsif char == '"' || char == '\''
+            tokens << read_string
+          elsif char == '+'
+            tokens << Token.new(:PLUS, "+", @line, @column)
+            advance
+          elsif char == '-'
+            tokens << Token.new(:MINUS, "-", @line, @column)
+            advance
+          elsif char == '*'
+            tokens << Token.new(:STAR, "*", @line, @column)
+            advance
+          elsif char == '/'
+            tokens << Token.new(:SLASH, "/", @line, @column)
+            advance
+          elsif char == '%'
+            tokens << Token.new(:PERCENT, "%", @line, @column)
+            advance
           else
             raise "Unexpected character: #{char}"
           end
@@ -70,6 +90,45 @@ module Starlark
           end
           @pos += 1
         end
+      end
+
+      private def read_number : Token
+        start_line = @line
+        start_column = @column
+
+        value = String.build do |io|
+          while @pos < @source.size && current_char.ascii_number?
+            io << current_char
+            advance
+          end
+        end
+
+        Token.new(:INTEGER, value, start_line, start_column)
+      end
+
+      private def read_string : Token
+        start_line = @line
+        start_column = @column
+        quote = current_char
+        advance # consume opening quote
+
+        value = String.build do |io|
+          while @pos < @source.size && current_char != quote
+            if current_char == '\\'
+              advance # consume backslash
+              if @pos < @source.size
+                io << current_char
+                advance
+              end
+            else
+              io << current_char
+              advance
+            end
+          end
+        end
+
+        advance # consume closing quote
+        Token.new(:STRING, value, start_line, start_column)
       end
 
       private def current_char : Char
