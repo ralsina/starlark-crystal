@@ -40,7 +40,7 @@ module Starlark
           elsif char == '"' || char == '\''
             tokens << read_string
           else
-            raise "Unexpected character: #{char}"
+            tokens << read_operator_or_punctuation
           end
         end
 
@@ -123,6 +123,128 @@ module Starlark
       private def advance
         @column += 1
         @pos += 1
+      end
+
+      private def peek_char : Char?
+        @source[@pos + 1]?
+      end
+
+      private def read_operator_or_punctuation : Token
+        start_line = @line
+        start_column = @column
+
+        case current_char
+        when '+'
+          advance
+          if current_char == '='
+            advance
+            Token.new(:PLUSEQ, "+=", start_line, start_column)
+          else
+            Token.new(:PLUS, "+", start_line, start_column)
+          end
+        when '-'
+          advance
+          if current_char == '='
+            advance
+            Token.new(:MINUSEQ, "-=", start_line, start_column)
+          else
+            Token.new(:MINUS, "-", start_line, start_column)
+          end
+        when '*'
+          advance
+          if current_char == '*'
+            advance
+            Token.new(:STARSTAR, "**", start_line, start_column)
+          elsif current_char == '='
+            advance
+            Token.new(:STAREQ, "*=", start_line, start_column)
+          else
+            Token.new(:STAR, "*", start_line, start_column)
+          end
+        when '/'
+          advance
+          if current_char == '/'
+            advance
+            if current_char == '='
+              advance
+              Token.new(:SLASHSLASHEQ, "//=", start_line, start_column)
+            else
+              Token.new(:SLASHSLASH, "//", start_line, start_column)
+            end
+          elsif current_char == '='
+            advance
+            Token.new(:SLASHEQ, "/=", start_line, start_column)
+          else
+            Token.new(:SLASH, "/", start_line, start_column)
+          end
+        when '%'
+          advance
+          Token.new(:PERCENT, "%", start_line, start_column)
+        when '='
+          advance
+          if current_char == '='
+            advance
+            Token.new(:EQEQ, "==", start_line, start_column)
+          else
+            Token.new(:ASSIGN, "=", start_line, start_column)
+          end
+        when '!'
+          advance
+          if current_char == '='
+            advance
+            Token.new(:BANGEQ, "!=", start_line, start_column)
+          else
+            raise "Unexpected character: !"
+          end
+        when '<'
+          advance
+          if current_char == '='
+            advance
+            Token.new(:LTE, "<=", start_line, start_column)
+          else
+            Token.new(:LT, "<", start_line, start_column)
+          end
+        when '>'
+          advance
+          if current_char == '='
+            advance
+            Token.new(:GTE, ">=", start_line, start_column)
+          else
+            Token.new(:GT, ">", start_line, start_column)
+          end
+        when '('
+          advance
+          Token.new(:LPAREN, "(", start_line, start_column)
+        when ')'
+          advance
+          Token.new(:RPAREN, ")", start_line, start_column)
+        when '{'
+          advance
+          Token.new(:LBRACE, "{", start_line, start_column)
+        when '}'
+          advance
+          Token.new(:RBRACE, "}", start_line, start_column)
+        when '['
+          advance
+          Token.new(:LBRACKET, "[", start_line, start_column)
+        when ']'
+          advance
+          Token.new(:RBRACKET, "]", start_line, start_column)
+        when ':'
+          advance
+          Token.new(:COLON, ":", start_line, start_column)
+        when ','
+          advance
+          Token.new(:COMMA, ",", start_line, start_column)
+        when '.'
+          advance
+          Token.new(:DOT, ".", start_line, start_column)
+        when '|'
+          advance
+          Token.new(:PIPE, "|", start_line, start_column)
+        else
+          raise "Unexpected character: #{current_char}"
+        end
       end
     end
   end

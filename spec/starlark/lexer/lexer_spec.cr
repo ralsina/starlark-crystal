@@ -47,4 +47,26 @@ describe Starlark::Lexer::Lexer do
 
     tokens.map(&.type).should eq([:TRUE, :FALSE, :NONE, :EOF])
   end
+
+  it "tokenizes operators" do
+    lexer = Starlark::Lexer::Lexer.new("+ - * / % // ** == != < <= > >= = += -= *= //=")
+    tokens = lexer.tokenize
+
+    tokens.map(&.type).should eq([
+      :PLUS, :MINUS, :STAR, :SLASH, :PERCENT, :SLASHSLASH,
+      :STARSTAR, :EQEQ, :BANGEQ, :LT, :LTE, :GT, :GTE,
+      :ASSIGN, :PLUSEQ, :MINUSEQ, :STAREQ, :SLASHSLASHEQ,
+      :EOF,
+    ])
+  end
+
+  it "tokenizes punctuation" do
+    lexer = Starlark::Lexer::Lexer.new("(){}[]:,.|")
+    tokens = lexer.tokenize
+
+    tokens.map(&.type).should eq([
+      :LPAREN, :RPAREN, :LBRACE, :RBRACE, :LBRACKET, :RBRACKET,
+      :COLON, :COMMA, :DOT, :PIPE, :EOF,
+    ])
+  end
 end
