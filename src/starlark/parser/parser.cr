@@ -289,29 +289,36 @@ module Starlark
     private def parse_assignment_or_expr_stmt : AST::Stmt
       # Look ahead to see if this is an assignment
       save_pos = @pos
-      identifier = parse_expression.as(AST::Identifier)
 
-      tok = current_token
-      if !tok.nil? && (tok.type == :ASSIGN || augmented_assign_op?)
-        # Assignment
-        op = tok.type
-        advance
-        value = parse_expression
+      # Try to parse just a primary expression (identifier) for assignment target
+      begin
+        left = parse_primary
+        if left.is_a?(AST::Identifier)
+          tok = current_token
+          if !tok.nil? && (tok.type == :ASSIGN || augmented_assign_op?)
+            # Assignment
+            op = tok.type
+            advance
+            value = parse_expression
 
-        if op == :ASSIGN
-          AST::Assign.new(identifier, value)
-        else
-          # Augmented assignment: x += 1 -> x = x + 1
-          inner_op = augmented_to_binary(op)
-          binary_expr = AST::BinaryOp.new(identifier, inner_op, value)
-          AST::Assign.new(identifier, binary_expr)
+            if op == :ASSIGN
+              return AST::Assign.new(left, value)
+            else
+              # Augmented assignment: x += 1 -> x = x + 1
+              inner_op = augmented_to_binary(op)
+              binary_expr = AST::BinaryOp.new(left, inner_op, value)
+              return AST::Assign.new(left, binary_expr)
+            end
+          end
         end
-      else
-        # Expression statement
-        @pos = save_pos
-        expr = parse_expression
-        AST::ExprStmt.new(expr)
+      rescue
+        # Not a valid assignment target, fall through to expression statement
       end
+
+      # Expression statement
+      @pos = save_pos
+      expr = parse_expression
+      AST::ExprStmt.new(expr)
     end
 
     private def augmented_assign_op? : Bool
