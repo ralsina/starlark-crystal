@@ -59,8 +59,11 @@ describe Starlark::Evaluator do
     evaluator.get_global("x").as_int.should eq(1)
   end
 
-  it "evaluates for loops over ranges" do
-    # This will need range support first
-    # evaluator.eval_stmt("for i in range(3): x = i")
+  it "evaluates for loops over lists" do
+    evaluator = Starlark::Evaluator.new
+    # Test iterating over a list and setting a variable
+    evaluator.eval_stmt("for x in [1, 2, 3]: y = x")
+    # After the loop, y should be the last value (3)
+    evaluator.get_global("y").as_int.should eq(3)
   end
 end

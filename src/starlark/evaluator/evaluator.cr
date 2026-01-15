@@ -117,7 +117,7 @@ module Starlark
     private def evaluate_def(stmt : AST::Def) : Value?
       # Create a function value
       # For now, just store the AST node
-      # TODO: Implement proper function closure
+      # FIXME: Implement proper function closure
       @globals[stmt.name] = Value.new(stmt) # Temporarily store AST
       nil
     end
