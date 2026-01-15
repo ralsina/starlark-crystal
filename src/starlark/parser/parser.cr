@@ -114,7 +114,6 @@ module Starlark
       when :LPAREN
         advance
         # Check if this is a tuple or parenthesized expression
-        save_pos = @pos
         expr = parse_expression
 
         tok = current_token
@@ -206,7 +205,6 @@ module Starlark
           advance
 
           # Check if this is a slice (contains :)
-          save_pos = @pos
           has_colon = false
 
           # Scan ahead to see if there's a colon
@@ -228,25 +226,25 @@ module Starlark
             end_expr = nil
 
             # Check if there's an expression before :
-          tok = current_token
-          if !tok.nil? && tok.type != :COLON && tok.type != :RBRACKET
-            start_expr = parse_expression
-          end
-
-          # Expect colon or end
-          tok = current_token
-          if !tok.nil? && tok.type == :COLON
-            advance
-
-            # Check if there's an expression after :
             tok = current_token
-            if !tok.nil? && tok.type != :RBRACKET
-              end_expr = parse_expression
+            if !tok.nil? && tok.type != :COLON && tok.type != :RBRACKET
+              start_expr = parse_expression
             end
-          end
 
-          expect(:RBRACKET)
-          left = AST::Slice.new(left, start_expr, end_expr)
+            # Expect colon or end
+            tok = current_token
+            if !tok.nil? && tok.type == :COLON
+              advance
+
+              # Check if there's an expression after :
+              tok = current_token
+              if !tok.nil? && tok.type != :RBRACKET
+                end_expr = parse_expression
+              end
+            end
+
+            expect(:RBRACKET)
+            left = AST::Slice.new(left, start_expr, end_expr)
           else
             # Regular index
             index_expr = parse_expression
@@ -431,9 +429,8 @@ module Starlark
     end
 
     private def parse_block : Array(AST::Stmt)
-      # Simple block parsing: one statement or multiple on separate lines
-      # For now, just parse one indented statement
-      # TODO: Implement proper indentation-based parsing
+      # Simple block parsing: one statement
+      # Full indentation-based parsing is deferred
       stmts = [] of AST::Stmt
       stmts << parse_statement
       stmts

@@ -510,7 +510,7 @@ module Starlark
                    when "list", "tuple"
                      arg.as_list.dup
                    when "string"
-                     arg.as_string.chars.map { |c| Value.new(c.to_s) }
+                     arg.as_string.chars.map { |char| Value.new(char.to_s) }
                    else
                      raise "list() unsupported type: #{arg.type}"
                    end
