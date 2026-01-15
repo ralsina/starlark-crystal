@@ -156,10 +156,9 @@ module Starlark
     end
 
     private def evaluate_def(stmt : AST::Def) : Value?
-      # Create a function value
-      # For now, just store the AST node
-      # FIXME: Implement proper function closure
-      @globals[stmt.name] = Value.new(stmt) # Temporarily store AST
+      # Create a closure with the current environment
+      closure = Closure.new(stmt.params, stmt.body, @globals.dup)
+      @globals[stmt.name] = Value.new(closure)
       nil
     end
 
@@ -285,31 +284,77 @@ module Starlark
     end
 
     private def evaluate_call(expr : AST::Call) : Value
-      args = expr.args.map { |arg| evaluate_expr(arg) }
-
-      # Check if this is a built-in function
+      # First check if this is a direct identifier call
       func_name = case func = expr.func
                   when AST::Identifier
                     func.name
                   else
-                    # Try to evaluate as expression
-                    func_value = evaluate_expr(expr.func)
-                    if func_value.type == "function"
-                      ast_node = func_value.as_ast
-                      if ast_node.is_a?(AST::Def)
-                        # User-defined function - not fully implemented yet
-                        raise "User-defined functions not yet implemented"
-                      end
-                    end
-                    raise "Cannot call non-identifier"
+                    nil
                   end
 
-      # Try to call as a built-in
-      begin
-        call_builtin(func_name, args)
-      rescue ex
-        raise "Error calling function: #{ex.message}"
+      args = expr.args.map { |arg| evaluate_expr(arg) }
+
+      # Check if it's a built-in function
+      if func_name && @builtins.has_key?(func_name)
+        return call_builtin(func_name, args)
       end
+
+      # Try to evaluate as expression
+      func_value = evaluate_expr(expr.func)
+
+      unless func_value.type == "function"
+        raise "Cannot call non-function: #{func_value.type}"
+      end
+
+      # Check if it's a closure
+      if func_value.@value.is_a?(Closure)
+        closure = func_value.as_closure
+        return call_closure(closure, args)
+      end
+
+      # Fallback to old AST-based approach (shouldn't happen anymore)
+      ast_node = func_value.as_ast
+      if ast_node.is_a?(AST::Def)
+        raise "Old-style function definitions not supported"
+      end
+
+      raise "Cannot call this function"
+    end
+
+    private def call_closure(closure : Closure, args : Array(Value)) : Value
+      # Check argument count
+      if args.size != closure.params.size
+        raise "Function expects #{closure.params.size} arguments, got #{args.size}"
+      end
+
+      # Create new environment by cloning the closure's environment
+      old_globals = @globals
+      @globals = closure.env.dup
+
+      # Bind parameters to arguments
+      closure.params.each_with_index do |param_name, index|
+        @globals[param_name] = args[index]
+      end
+
+      # Execute function body
+      result = nil
+      return_value = nil
+      closure.body.each do |statement|
+        result = evaluate_stmt(statement)
+        # Check if this is a return statement
+        if stmt = statement
+          if stmt.is_a?(AST::Return)
+            return_value = result
+            break
+          end
+        end
+      end
+
+      # Restore globals
+      @globals = old_globals
+
+      # Return the result (or None if no explicit return)
+      return_value || Value.none
     end
 
     private def call_builtin(name : String, args : Array(Value)) : Value

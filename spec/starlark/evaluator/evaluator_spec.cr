@@ -254,4 +254,44 @@ describe Starlark::Evaluator do
     evaluator.eval_multi(source)
     evaluator.get_global("z").as_int.should eq(3)
   end
+
+  # Task 14: Functions and Closures
+  it "evaluates simple function definitions and calls" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.eval_stmt("def add(a, b): return a + b")
+    result = evaluator.eval("add(2, 3)")
+    result.as_int.should eq(5)
+  end
+
+  it "evaluates functions with closures" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.eval_stmt("x = 10")
+    evaluator.eval_stmt("def get_x(): return x")
+    result = evaluator.eval("get_x()")
+    result.as_int.should eq(10)
+  end
+
+  it "evaluates functions with parameters shadowing globals" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.eval_stmt("x = 10")
+    evaluator.eval_stmt("def use_x(x): return x + 5")
+    result = evaluator.eval("use_x(3)")
+    result.as_int.should eq(8)
+  end
+
+  it "evaluates functions with local variables" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.eval_stmt("def counter(): return 0 + 1")
+    result = evaluator.eval("counter()")
+    result.as_int.should eq(1)
+  end
+
+  it "evaluates functions accessing outer scope" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.eval_stmt("x = 1")
+    evaluator.eval_stmt("y = 2")
+    evaluator.eval_stmt("def sum(): return x + y")
+    result = evaluator.eval("sum()")
+    result.as_int.should eq(3)
+  end
 end
