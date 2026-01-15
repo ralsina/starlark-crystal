@@ -92,11 +92,11 @@ module Starlark
     private def evaluate_stmt(stmt : AST::Stmt) : Value?
       case stmt
       when AST::Assign
-        value = evaluate_expr(stmt.value)
+        value = evaluate_expr(stmt.value).freeze
         @globals[stmt.target.as(AST::Identifier).name] = value
         nil
       when AST::ExprStmt
-        evaluate_expr(stmt.expr)
+        evaluate_expr(stmt.expr).freeze
       when AST::If
         evaluate_if(stmt)
       when AST::For
@@ -149,7 +149,7 @@ module Starlark
 
     private def evaluate_return(stmt : AST::Return) : Value?
       if value = stmt.value
-        evaluate_expr(value)
+        evaluate_expr(value).freeze
       else
         Value.none
       end

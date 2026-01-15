@@ -13,12 +13,13 @@ module Starlark
 
   class Value
     getter type : String
+    getter? frozen : Bool
 
     # Union of all possible value types
     # For tuples, we use Array but mark them with type "tuple"
     @value : (Nil | Bool | Int64 | String | Array(Value) | Hash(Value, Value) | Closure | AST::Node)
 
-    def initialize(@value, explicit_type : String? = nil)
+    def initialize(@value, explicit_type : String? = nil, @frozen : Bool = false)
       @type = if explicit_type
                 explicit_type
               else
@@ -35,6 +36,32 @@ module Starlark
                   raise "Unknown type: #{@value.class}"
                 end
               end
+    end
+
+    def freeze : Value
+      return self if @frozen
+
+      case v = @value
+      when Array
+        # Recursively freeze all elements
+        frozen_elements = v.map(&.freeze)
+        @value = frozen_elements
+      when Hash
+        # Recursively freeze all keys and values
+        frozen_dict = {} of Value => Value
+        v.each do |key, val|
+          frozen_key = key.freeze
+          frozen_val = val.freeze
+          frozen_dict[frozen_key] = frozen_val
+        end
+        @value = frozen_dict
+      when Closure
+        # Freeze the closure's environment
+        v.env.transform_values(&.freeze)
+      end
+
+      @frozen = true
+      self
     end
 
     def self.builtin_placeholder : Value
