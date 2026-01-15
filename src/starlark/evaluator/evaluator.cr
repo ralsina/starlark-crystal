@@ -427,6 +427,7 @@ module Starlark
       @builtins["list"] = ->builtin_list(Array(Value))
       @builtins["dict"] = ->builtin_dict(Array(Value))
       @builtins["tuple"] = ->builtin_tuple(Array(Value))
+      @builtins["fail"] = ->builtin_fail(Array(Value))
     end
 
     private def builtin_len(args : Array(Value)) : Value
@@ -616,6 +617,26 @@ module Starlark
                     end
 
       Value.new(tuple_value, "tuple")
+    end
+
+    private def builtin_fail(args : Array(Value)) : Value
+      # fail() raises an exception with an optional message
+      message = if args.size == 1
+                  arg = args[0]
+                  if arg.type == "string"
+                    arg.as_string
+                  elsif arg.type == "NoneType"
+                    ""
+                  else
+                    raise "fail() argument must be a string or None"
+                  end
+                elsif args.size == 0
+                  ""
+                else
+                  raise "fail() takes 0 or 1 argument (#{args.size} given)"
+                end
+
+      raise "fail: #{message}"
     end
 
     private def evaluate_dict(expr : AST::Dict) : Value
