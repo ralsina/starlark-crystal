@@ -113,9 +113,26 @@ module Starlark
         AST::Identifier.new(token_value(token))
       when :LPAREN
         advance
+        # Check if this is a tuple or parenthesized expression
+        save_pos = @pos
         expr = parse_expression
-        expect(:RPAREN)
-        expr
+
+        tok = current_token
+        if !tok.nil? && tok.type == :COMMA
+          # This is a tuple
+          elements = [expr]
+          while !tok.nil? && tok.type == :COMMA
+            advance
+            elements << parse_expression
+            tok = current_token
+          end
+          expect(:RPAREN)
+          AST::TupleLiteral.new(elements)
+        else
+          # This is a parenthesized expression or potential function call
+          expect(:RPAREN)
+          expr
+        end
       when :LBRACKET
         advance
         elements = [] of AST::Expr
@@ -166,6 +183,24 @@ module Starlark
         break if tok.nil?
 
         case tok.type
+        when :LPAREN
+          # Function call
+          advance
+          args = [] of AST::Expr
+
+          tok = current_token
+          if !tok.nil? && tok.type != :RPAREN
+            args << parse_expression
+            tok = current_token
+            while !tok.nil? && tok.type == :COMMA
+              advance
+              args << parse_expression
+              tok = current_token
+            end
+          end
+
+          expect(:RPAREN)
+          left = AST::Call.new(left, args)
         when :LBRACKET
           # Index or slice
           advance

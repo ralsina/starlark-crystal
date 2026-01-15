@@ -135,4 +135,84 @@ describe Starlark::Evaluator do
     result.type.should eq("list")
     result.as_list.map(&.as_int).should eq([1, 2, 3])
   end
+
+  # Task 12: Built-in Functions
+  it "evaluates len builtin" do
+    evaluator = Starlark::Evaluator.new
+    result = evaluator.eval("len([1, 2, 3])")
+    result.as_int.should eq(3)
+    result = evaluator.eval(%(len("hello")))
+    result.as_int.should eq(5)
+    result = evaluator.eval("len({1: 2, 3: 4})")
+    result.as_int.should eq(2)
+  end
+
+  it "evaluates range builtin" do
+    evaluator = Starlark::Evaluator.new
+    result = evaluator.eval("range(5)")
+    result.type.should eq("list")
+    result.as_list.map(&.as_int).should eq([0, 1, 2, 3, 4])
+  end
+
+  it "evaluates range with start and stop" do
+    evaluator = Starlark::Evaluator.new
+    result = evaluator.eval("range(1, 5)")
+    result.as_list.map(&.as_int).should eq([1, 2, 3, 4])
+  end
+
+  it "evaluates range with start, stop, and step" do
+    evaluator = Starlark::Evaluator.new
+    result = evaluator.eval("range(0, 10, 2)")
+    result.as_list.map(&.as_int).should eq([0, 2, 4, 6, 8])
+  end
+
+  it "evaluates str builtin" do
+    evaluator = Starlark::Evaluator.new
+    result = evaluator.eval("str(42)")
+    result.as_string.should eq("42")
+    result = evaluator.eval("str(True)")
+    result.as_string.should eq("True")
+  end
+
+  it "evaluates int builtin" do
+    evaluator = Starlark::Evaluator.new
+    result = evaluator.eval("int(42)")
+    result.as_int.should eq(42)
+    result = evaluator.eval(%(int("42")))
+    result.as_int.should eq(42)
+  end
+
+  it "evaluates bool builtin" do
+    evaluator = Starlark::Evaluator.new
+    result = evaluator.eval("bool(1)")
+    result.as_bool.should eq(true)
+    result = evaluator.eval("bool(0)")
+    result.as_bool.should eq(false)
+    result = evaluator.eval("bool([])")
+    result.as_bool.should eq(false)
+    result = evaluator.eval("bool([1])")
+    result.as_bool.should eq(true)
+  end
+
+  it "evaluates list builtin" do
+    evaluator = Starlark::Evaluator.new
+    result = evaluator.eval("list((1, 2, 3))")
+    result.type.should eq("list")
+    result.as_list.map(&.as_int).should eq([1, 2, 3])
+  end
+
+  it "evaluates dict builtin" do
+    evaluator = Starlark::Evaluator.new
+    result = evaluator.eval("dict([(1, 2), (3, 4)])")
+    result.type.should eq("dict")
+    dict = result.as_dict
+    dict.size.should eq(2)
+  end
+
+  it "evaluates tuple builtin" do
+    evaluator = Starlark::Evaluator.new
+    result = evaluator.eval("tuple([1, 2, 3])")
+    result.type.should eq("tuple")
+    result.as_list.map(&.as_int).should eq([1, 2, 3])
+  end
 end

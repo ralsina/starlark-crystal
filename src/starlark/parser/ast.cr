@@ -72,7 +72,7 @@ module Starlark
 
     # Dict literal
     class Dict < Expr
-      getter entries : Array(Tuple(Expr, Expr))
+      getter entries : Array({Expr, Expr})
 
       def initialize(@entries)
       end
@@ -94,6 +94,23 @@ module Starlark
       getter end_index : Expr?
 
       def initialize(@object, @start = nil, @end_index = nil)
+      end
+    end
+
+    # Function call
+    class Call < Expr
+      getter func : Expr
+      getter args : Array(Expr)
+
+      def initialize(@func, @args = [] of Expr)
+      end
+    end
+
+    # Tuple literal
+    class TupleLiteral < Expr
+      getter elements : Array(Expr)
+
+      def initialize(@elements)
       end
     end
 

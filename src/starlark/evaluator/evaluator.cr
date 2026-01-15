@@ -47,10 +47,14 @@ module Starlark
         evaluate_list(expr)
       when AST::Dict
         evaluate_dict(expr)
+      when AST::TupleLiteral
+        evaluate_tuple(expr)
       when AST::Index
         evaluate_index(expr)
       when AST::Slice
         evaluate_slice(expr)
+      when AST::Call
+        evaluate_call(expr)
       else
         raise "Unknown expression type: #{expr.class}"
       end
@@ -244,6 +248,251 @@ module Starlark
     private def evaluate_list(expr : AST::List) : Value
       elements = expr.elements.map { |e| evaluate_expr(e) }
       Value.new(elements)
+    end
+
+    private def evaluate_tuple(expr : AST::TupleLiteral) : Value
+      elements = expr.elements.map { |e| evaluate_expr(e) }
+      Value.new(elements, "tuple")
+    end
+
+    private def evaluate_call(expr : AST::Call) : Value
+      args = expr.args.map { |arg| evaluate_expr(arg) }
+
+      # Check if this is a built-in function
+      func_name = case func = expr.func
+                  when AST::Identifier
+                    func.name
+                  else
+                    # Try to evaluate as expression
+                    func_value = evaluate_expr(expr.func)
+                    if func_value.type == "function"
+                      ast_node = func_value.as_ast
+                      if ast_node.is_a?(AST::Def)
+                        # User-defined function - not fully implemented yet
+                        raise "User-defined functions not yet implemented"
+                      end
+                    end
+                    raise "Cannot call non-identifier"
+                  end
+
+      # Try to call as a built-in
+      begin
+        call_builtin(func_name, args)
+      rescue ex
+        raise "Error calling function: #{ex.message}"
+      end
+    end
+
+    private def call_builtin(name : String, args : Array(Value)) : Value
+      case name
+      when "len"
+        builtin_len(args)
+      when "range"
+        builtin_range(args)
+      when "str"
+        builtin_str(args)
+      when "int"
+        builtin_int(args)
+      when "bool"
+        builtin_bool(args)
+      when "list"
+        builtin_list(args)
+      when "dict"
+        builtin_dict(args)
+      when "tuple"
+        builtin_tuple(args)
+      else
+        raise "Unknown built-in function: #{name}"
+      end
+    end
+
+    private def builtin_len(args : Array(Value)) : Value
+      if args.size != 1
+        raise "len() takes exactly 1 argument (#{args.size} given)"
+      end
+
+      arg = args[0]
+      length = case arg.type
+               when "string"
+                 arg.as_string.size.to_i64
+               when "list", "tuple"
+                 arg.as_list.size.to_i64
+               when "dict"
+                 arg.as_dict.size.to_i64
+               else
+                 raise "len() unsupported type: #{arg.type}"
+               end
+
+      Value.new(length)
+    end
+
+    private def builtin_range(args : Array(Value)) : Value
+      if args.size < 1 || args.size > 3
+        raise "range() takes 1-3 arguments (#{args.size} given)"
+      end
+
+      # Convert all args to integers
+      int_args = args.map { |arg|
+        case arg.type
+        when "int"
+          arg.as_int
+        else
+          raise "range() arguments must be integers"
+        end
+      }
+
+      start_value = 0_i64
+      stop_value = 0_i64
+      step_value = 1_i64
+
+      case int_args.size
+      when 1
+        stop_value = int_args[0]
+      when 2
+        start_value = int_args[0]
+        stop_value = int_args[1]
+      when 3
+        start_value = int_args[0]
+        stop_value = int_args[1]
+        step_value = int_args[2]
+        if step_value == 0
+          raise "range() step cannot be zero"
+        end
+      end
+
+      # Generate the range
+      result = [] of Value
+      current = start_value
+
+      if step_value > 0
+        while current < stop_value
+          result << Value.new(current)
+          current += step_value
+        end
+      else
+        while current > stop_value
+          result << Value.new(current)
+          current += step_value
+        end
+      end
+
+      Value.new(result)
+    end
+
+    private def builtin_str(args : Array(Value)) : Value
+      if args.size != 1
+        raise "str() takes exactly 1 argument (#{args.size} given)"
+      end
+
+      arg = args[0]
+      string_value = case arg.type
+                     when "int"
+                       arg.as_int.to_s
+                     when "string"
+                       arg.as_string
+                     when "bool"
+                       arg.as_bool ? "True" : "False"
+                     when "NoneType"
+                       "None"
+                     else
+                       arg.to_s
+                     end
+
+      Value.new(string_value)
+    end
+
+    private def builtin_int(args : Array(Value)) : Value
+      if args.size != 1
+        raise "int() takes exactly 1 argument (#{args.size} given)"
+      end
+
+      arg = args[0]
+      int_value = case arg.type
+                  when "int"
+                    arg.as_int
+                  when "string"
+                    arg.as_string.to_i64
+                  when "bool"
+                    arg.as_bool ? 1_i64 : 0_i64
+                  else
+                    raise "int() unsupported type: #{arg.type}"
+                  end
+
+      Value.new(int_value)
+    end
+
+    private def builtin_bool(args : Array(Value)) : Value
+      if args.size != 1
+        raise "bool() takes exactly 1 argument (#{args.size} given)"
+      end
+
+      Value.new(args[0].truth)
+    end
+
+    private def builtin_list(args : Array(Value)) : Value
+      if args.size != 1
+        raise "list() takes exactly 1 argument (#{args.size} given)"
+      end
+
+      arg = args[0]
+      list_value = case arg.type
+                   when "list", "tuple"
+                     arg.as_list.dup
+                   when "string"
+                     arg.as_string.chars.map { |c| Value.new(c.to_s) }
+                   else
+                     raise "list() unsupported type: #{arg.type}"
+                   end
+
+      Value.new(list_value)
+    end
+
+    private def builtin_dict(args : Array(Value)) : Value
+      if args.size != 1
+        raise "dict() takes exactly 1 argument (#{args.size} given)"
+      end
+
+      arg = args[0]
+      dict_value = case arg.type
+                   when "dict"
+                     arg.as_dict
+                   when "list", "tuple"
+                     # Create dict from list of tuples
+                     dict = {} of Value => Value
+                     arg.as_list.each do |item|
+                       # Each item should be a tuple with 2 elements
+                       if item.type == "tuple"
+                         tuple_elements = item.as_list
+                         if tuple_elements.size == 2
+                           dict[tuple_elements[0]] = tuple_elements[1]
+                         end
+                       end
+                     end
+                     dict
+                   else
+                     raise "dict() unsupported type: #{arg.type}"
+                   end
+
+      Value.new(dict_value)
+    end
+
+    private def builtin_tuple(args : Array(Value)) : Value
+      if args.size != 1
+        raise "tuple() takes exactly 1 argument (#{args.size} given)"
+      end
+
+      arg = args[0]
+      tuple_value = case arg.type
+                    when "tuple"
+                      # Return as is (it's already a tuple internally)
+                      arg.as_list
+                    when "list"
+                      arg.as_list
+                    else
+                      raise "tuple() unsupported type: #{arg.type}"
+                    end
+
+      Value.new(tuple_value, "tuple")
     end
 
     private def evaluate_dict(expr : AST::Dict) : Value
