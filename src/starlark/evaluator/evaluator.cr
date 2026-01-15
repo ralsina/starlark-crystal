@@ -41,8 +41,16 @@ module Starlark
         lookup_variable(expr.name)
       when AST::BinaryOp
         evaluate_binary_op(expr)
+      when AST::UnaryOp
+        evaluate_unary_op(expr)
       when AST::List
         evaluate_list(expr)
+      when AST::Dict
+        evaluate_dict(expr)
+      when AST::Index
+        evaluate_index(expr)
+      when AST::Slice
+        evaluate_slice(expr)
       else
         raise "Unknown expression type: #{expr.class}"
       end
@@ -142,6 +150,24 @@ module Starlark
       end
     end
 
+    private def evaluate_unary_op(expr : AST::UnaryOp) : Value
+      operand_val = evaluate_expr(expr.operand)
+
+      case expr.op
+      when :MINUS
+        case operand_val.type
+        when "int"
+          Value.new(-operand_val.as_int)
+        else
+          raise "Cannot apply unary minus to #{operand_val.type}"
+        end
+      when :PLUS
+        operand_val
+      else
+        raise "Unknown unary operator: #{expr.op}"
+      end
+    end
+
     private def evaluate_plus(left : Value, right : Value) : Value
       case {left.type, right.type}
       when {"int", "int"}
@@ -218,6 +244,106 @@ module Starlark
     private def evaluate_list(expr : AST::List) : Value
       elements = expr.elements.map { |e| evaluate_expr(e) }
       Value.new(elements)
+    end
+
+    private def evaluate_dict(expr : AST::Dict) : Value
+      dict = {} of Value => Value
+      expr.entries.each do |key_expr, value_expr|
+        key = evaluate_expr(key_expr)
+        value = evaluate_expr(value_expr)
+        dict[key] = value
+      end
+      Value.new(dict)
+    end
+
+    private def evaluate_index(expr : AST::Index) : Value
+      object = evaluate_expr(expr.object)
+      index = evaluate_expr(expr.index)
+
+      case object.type
+      when "list"
+        list = object.as_list
+        idx = index.as_int
+
+        # Handle negative indexing
+        if idx < 0
+          idx = list.size + idx
+        end
+
+        if idx < 0 || idx >= list.size
+          raise "Index out of bounds: #{index.as_int}"
+        end
+
+        list[idx]
+      when "dict"
+        dict = object.as_dict
+        unless dict.has_key?(index)
+          raise "Key not found: #{index}"
+        end
+        dict[index]
+      when "string"
+        str = object.as_string
+        idx = index.as_int
+
+        # Handle negative indexing
+        if idx < 0
+          idx = str.size + idx
+        end
+
+        if idx < 0 || idx >= str.size
+          raise "Index out of bounds: #{index.as_int}"
+        end
+
+        Value.new(str[idx].to_s)
+      else
+        raise "Cannot index #{object.type}"
+      end
+    end
+
+    private def evaluate_slice(expr : AST::Slice) : Value
+      object = evaluate_expr(expr.object)
+
+      # Only lists support slicing for now
+      unless object.type == "list"
+        raise "Cannot slice #{object.type}"
+      end
+
+      list = object.as_list
+      list_size = list.size.to_i64
+
+      # Parse start index
+      start_idx = 0_i64
+      if start_expr = expr.start
+        start_val = evaluate_expr(start_expr)
+        start_idx = start_val.as_int
+
+        # Handle negative start
+        if start_idx < 0
+          start_idx = list_size + start_idx
+          start_idx = 0_i64 if start_idx < 0
+        end
+      end
+
+      # Parse end index
+      end_idx = list_size
+      if end_expr = expr.end_index
+        end_val = evaluate_expr(end_expr)
+        end_idx = end_val.as_int
+
+        # Handle negative end
+        if end_idx < 0
+          end_idx = list_size + end_idx
+        end
+      end
+
+      # Clamp indices
+      start_idx = {0_i64, start_idx}.max
+      end_idx = {list_size, end_idx}.min
+      start_idx = {start_idx, end_idx}.min
+
+      # Extract slice
+      result = list[start_idx...end_idx]
+      Value.new(result)
     end
 
     private def lookup_variable(name : String) : Value

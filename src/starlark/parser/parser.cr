@@ -72,8 +72,17 @@ module Starlark
     end
 
     private def parse_unary : AST::Expr
-      # For now, just handle primary expressions
-      parse_primary
+      # Handle unary operators
+      tok = current_token
+      if !tok.nil? && (tok.type == :PLUS || tok.type == :MINUS)
+        advance
+        expr = parse_unary
+        AST::UnaryOp.new(tok.type, expr)
+      else
+        # Handle primary expressions with postfix
+        primary = parse_primary
+        parse_postfix(primary)
+      end
     end
 
     private def parse_primary : AST::Expr
@@ -122,9 +131,99 @@ module Starlark
         end
         expect(:RBRACKET)
         AST::List.new(elements)
+      when :LBRACE
+        advance
+        entries = [] of Tuple(AST::Expr, AST::Expr)
+        tok = current_token
+        if tok.nil? || tok.type != :RBRACE
+          # Parse key: value
+          key = parse_expression
+          expect(:COLON)
+          value = parse_expression
+          entries << {key, value}
+
+          # Parse additional entries
+          comma_tok = current_token
+          while !comma_tok.nil? && comma_tok.type == :COMMA
+            advance
+            key = parse_expression
+            expect(:COLON)
+            value = parse_expression
+            entries << {key, value}
+            comma_tok = current_token
+          end
+        end
+        expect(:RBRACE)
+        AST::Dict.new(entries)
       else
         raise "Unexpected token in expression: #{token.type}"
       end
+    end
+
+    private def parse_postfix(left : AST::Expr) : AST::Expr
+      while @pos < @tokens.size
+        tok = current_token
+        break if tok.nil?
+
+        case tok.type
+        when :LBRACKET
+          # Index or slice
+          advance
+
+          # Check if this is a slice (contains :)
+          save_pos = @pos
+          has_colon = false
+
+          # Scan ahead to see if there's a colon
+          scan_pos = @pos
+          while scan_pos < @tokens.size
+            scan_tok = @tokens[scan_pos]
+            if scan_tok.type == :COLON
+              has_colon = true
+              break
+            elsif scan_tok.type == :RBRACKET
+              break
+            end
+            scan_pos += 1
+          end
+
+          if has_colon
+            # Parse slice
+            start_expr = nil
+            end_expr = nil
+
+            # Check if there's an expression before :
+          tok = current_token
+          if !tok.nil? && tok.type != :COLON && tok.type != :RBRACKET
+            start_expr = parse_expression
+          end
+
+          # Expect colon or end
+          tok = current_token
+          if !tok.nil? && tok.type == :COLON
+            advance
+
+            # Check if there's an expression after :
+            tok = current_token
+            if !tok.nil? && tok.type != :RBRACKET
+              end_expr = parse_expression
+            end
+          end
+
+          expect(:RBRACKET)
+          left = AST::Slice.new(left, start_expr, end_expr)
+          else
+            # Regular index
+            index_expr = parse_expression
+            expect(:RBRACKET)
+            left = AST::Index.new(left, index_expr)
+          end
+        else
+          break
+        end
+      end
+
+      left
     end
 
     private def token_value(token : Lexer::Token) : String

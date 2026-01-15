@@ -53,11 +53,47 @@ module Starlark
       end
     end
 
+    # Unary operations
+    class UnaryOp < Expr
+      getter op : Symbol
+      getter operand : Expr
+
+      def initialize(@op, @operand)
+      end
+    end
+
     # List literal
     class List < Expr
       getter elements : Array(Expr)
 
       def initialize(@elements)
+      end
+    end
+
+    # Dict literal
+    class Dict < Expr
+      getter entries : Array(Tuple(Expr, Expr))
+
+      def initialize(@entries)
+      end
+    end
+
+    # Index expression
+    class Index < Expr
+      getter object : Expr
+      getter index : Expr
+
+      def initialize(@object, @index)
+      end
+    end
+
+    # Slice expression
+    class Slice < Expr
+      getter object : Expr
+      getter start : Expr?
+      getter end_index : Expr?
+
+      def initialize(@object, @start = nil, @end_index = nil)
       end
     end
 
