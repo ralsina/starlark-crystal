@@ -78,15 +78,15 @@ module Starlark
     def self.execute_chunk(chunk : Array(String)) : {String, Int32}
       evaluator = Evaluator.new
 
-      # Register built-in assertions
+      # Register built-in assertions (no default args support yet)
       assertions = "
         def assert_eq(x, y):
           if x != y:
             print(\"assert_eq failed: %r != %r\" % (x, y))
 
-        def assert_(cond, msg=\"assertion failed\"):
+        def assert_(cond):
           if not cond:
-            print(msg)
+            print(\"assertion failed\")
 
         def assert_ne(x, y):
           if x == y:

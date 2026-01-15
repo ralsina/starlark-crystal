@@ -195,6 +195,8 @@ module Starlark
         end
       when :PLUS
         operand_val
+      when :NOT
+        Value.new(!operand_val.truth)
       else
         raise "Unknown unary operator: #{expr.op}"
       end

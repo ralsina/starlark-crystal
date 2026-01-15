@@ -74,7 +74,7 @@ module Starlark
     private def parse_unary : AST::Expr
       # Handle unary operators
       tok = current_token
-      if !tok.nil? && (tok.type == :PLUS || tok.type == :MINUS)
+      if !tok.nil? && (tok.type == :PLUS || tok.type == :MINUS || tok.type == :NOT)
         advance
         expr = parse_unary
         AST::UnaryOp.new(tok.type, expr)

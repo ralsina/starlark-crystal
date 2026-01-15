@@ -27,7 +27,8 @@
       "mcp__web-reader__webReader",
       "WebSearch",
       "Bash(git clone:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(awk:*)"
     ]
   }
 }
