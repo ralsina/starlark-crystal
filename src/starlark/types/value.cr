@@ -26,6 +26,10 @@ module Starlark
               end
     end
 
+    def self.builtin_placeholder : Value
+      new("builtin", "builtin")
+    end
+
     def self.none : Value
       new(nil)
     end

@@ -2,13 +2,42 @@ require "../parser/parser"
 require "../types/value"
 
 module Starlark
+  # Type alias for builtin functions
+  alias BuiltinFunction = Array(Value) -> Value
+
   class Evaluator
     @globals : Hash(String, Value)
-    @builtins : Hash(String, Value)
+    @builtins : Hash(String, BuiltinFunction)
 
     def initialize
       @globals = {} of String => Value
-      @builtins = {} of String => Value
+      @builtins = {} of String => BuiltinFunction
+      register_default_builtins
+    end
+
+    def set_global(name : String, value : Value)
+      @globals[name] = value
+    end
+
+    def register_builtin(name : String, func : BuiltinFunction)
+      @builtins[name] = func
+    end
+
+    def eval_file(path : String) : Value?
+      source = File.read(path)
+      eval_multi(source)
+    end
+
+    def eval_multi(source : String) : Value?
+      lines = source.split('\n')
+      result = nil
+      lines.each do |line|
+        line = line.strip
+        if !line.empty?
+          result = eval_stmt(line)
+        end
+      end
+      result
     end
 
     def eval(source : String) : Value
@@ -284,26 +313,23 @@ module Starlark
     end
 
     private def call_builtin(name : String, args : Array(Value)) : Value
-      case name
-      when "len"
-        builtin_len(args)
-      when "range"
-        builtin_range(args)
-      when "str"
-        builtin_str(args)
-      when "int"
-        builtin_int(args)
-      when "bool"
-        builtin_bool(args)
-      when "list"
-        builtin_list(args)
-      when "dict"
-        builtin_dict(args)
-      when "tuple"
-        builtin_tuple(args)
+      builtin_func = @builtins[name]?
+      if builtin_func
+        builtin_func.call(args)
       else
         raise "Unknown built-in function: #{name}"
       end
+    end
+
+    private def register_default_builtins
+      @builtins["len"] = ->builtin_len(Array(Value))
+      @builtins["range"] = ->builtin_range(Array(Value))
+      @builtins["str"] = ->builtin_str(Array(Value))
+      @builtins["int"] = ->builtin_int(Array(Value))
+      @builtins["bool"] = ->builtin_bool(Array(Value))
+      @builtins["list"] = ->builtin_list(Array(Value))
+      @builtins["dict"] = ->builtin_dict(Array(Value))
+      @builtins["tuple"] = ->builtin_tuple(Array(Value))
     end
 
     private def builtin_len(args : Array(Value)) : Value
@@ -596,7 +622,15 @@ module Starlark
     end
 
     private def lookup_variable(name : String) : Value
-      @globals[name]? || @builtins[name]? || raise "Undefined variable: #{name}"
+      @globals[name]? || begin
+        if @builtins.has_key?(name)
+          # Return a placeholder value that indicates this is a builtin
+          # The actual call will be handled by evaluate_call
+          Value.builtin_placeholder
+        else
+          raise "Undefined variable: #{name}"
+        end
+      end
     end
   end
 end

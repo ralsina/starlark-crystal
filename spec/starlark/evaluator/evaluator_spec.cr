@@ -215,4 +215,43 @@ describe Starlark::Evaluator do
     result.type.should eq("tuple")
     result.as_list.map(&.as_int).should eq([1, 2, 3])
   end
+
+  # Task 13: Crystal Integration API
+  it "allows setting globals from Crystal" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.set_global("x", Starlark::Value.new(42_i64))
+    result = evaluator.eval("x")
+    result.as_int.should eq(42)
+  end
+
+  it "allows registering custom builtins from Crystal" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.register_builtin("double", ->(args : Array(Starlark::Value)) {
+      if args.size != 1
+        raise "double() takes exactly 1 argument"
+      end
+      val = args[0].as_int
+      Starlark::Value.new(val * 2)
+    })
+    result = evaluator.eval("double(21)")
+    result.as_int.should eq(42)
+  end
+
+  it "allows evaluating files" do
+    evaluator = Starlark::Evaluator.new
+    # Create a temp file with Starlark code
+    temp_file = "/tmp/test_starlark_#{Random.new.hex}.star"
+    File.write(temp_file, "x = 42\ny = x + 10")
+    evaluator.eval_file(temp_file)
+    evaluator.get_global("x").as_int.should eq(42)
+    evaluator.get_global("y").as_int.should eq(52)
+    File.delete(temp_file)
+  end
+
+  it "allows evaluating multiple statements" do
+    evaluator = Starlark::Evaluator.new
+    source = "x = 1\ny = 2\nz = x + y"
+    evaluator.eval_multi(source)
+    evaluator.get_global("z").as_int.should eq(3)
+  end
 end
