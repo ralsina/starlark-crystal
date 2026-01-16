@@ -123,6 +123,9 @@ module Starlark
       when AST::TupleAssign
         evaluate_tuple_assign(stmt)
         nil
+      when AST::IndexAssign
+        evaluate_index_assign(stmt)
+        nil
       when AST::ExprStmt
         evaluate_expr(stmt.expr).freeze
       when AST::If
@@ -223,13 +226,114 @@ module Starlark
       targets.each_with_index do |target_expr, index|
         case target_expr
         when AST::Identifier
+          # Simple assignment: g = 1
           @globals[target_expr.name] = elements[index]
+        when AST::TupleLiteral, AST::List
+          # Nested unpacking: (i, j) = [3, 4]
+          nested_value = elements[index]
+
+          # Ensure the nested value is iterable
+          unless nested_value.type == "tuple" || nested_value.type == "list"
+            raise "Cannot unpack non-iterable type in nested assignment: #{nested_value.type}"
+          end
+
+          nested_elements = nested_value.as_list
+          nested_targets = target_expr.is_a?(AST::TupleLiteral) ?
+                          target_expr.as(AST::TupleLiteral).elements :
+                          target_expr.as(AST::List).elements
+
+          # Check nested sizes match
+          unless nested_targets.size == nested_elements.size
+            raise "Nested unpacking error: #{nested_targets.size} targets but #{nested_elements.size} values"
+          end
+
+          # Recursively assign nested elements
+          nested_targets.each_with_index do |nested_target, nested_index|
+            case nested_target
+            when AST::Identifier
+              @globals[nested_target.name] = nested_elements[nested_index]
+            else
+              raise "Nested tuple assignment target must be identifier, got #{nested_target.class}"
+            end
+          end
         else
-          raise "Tuple assignment target must be an identifier, got #{target_expr.class}"
+          raise "Tuple assignment target must be an identifier, tuple, or list, got #{target_expr.class}"
         end
       end
 
       Value.none
+    end
+
+    private def evaluate_index_assign(stmt : AST::IndexAssign) : Value?
+      object = evaluate_expr(stmt.object)
+      index = evaluate_expr(stmt.index)
+
+      # For augmented assignment, get the current value first
+      if stmt.op != :ASSIGN
+        current_value = get_index_value(object, index)
+        inner_op = augmented_to_binary(stmt.op)
+        # Perform the operation
+        result_value = evaluate_binary_op(AST::BinaryOp.new(
+          AST::LiteralInt.new(current_value.as_int),
+          inner_op,
+          stmt.value
+        ))
+        value_to_assign = result_value
+      else
+        value_to_assign = evaluate_expr(stmt.value)
+      end
+
+      case object.type
+      when "list"
+        list = object.as_list
+        idx = index.as_int
+
+        # Handle negative indexing
+        if idx < 0
+          idx = list.size + idx
+        end
+
+        if idx < 0 || idx >= list.size
+          raise "Index out of bounds: #{index.as_int}"
+        end
+
+        # Mutate the list
+        list[idx] = value_to_assign
+        Value.none
+      when "dict"
+        dict = object.as_dict
+        dict[index] = value_to_assign
+        Value.none
+      else
+        raise "Cannot assign to index of #{object.type}"
+      end
+    end
+
+    private def get_index_value(object : Value, index : Value) : Value
+      case object.type
+      when "list"
+        list = object.as_list
+        idx = index.as_int
+
+        # Handle negative indexing
+        if idx < 0
+          idx = list.size + idx
+        end
+
+        if idx < 0 || idx >= list.size
+          raise "Index out of bounds: #{index.as_int}"
+        end
+
+        list[idx]
+      when "dict"
+        dict = object.as_dict
+        unless dict.has_key?(index)
+          raise "Key not found: #{index}"
+        end
+        dict[index]
+      else
+        raise "Cannot index #{object.type}"
+      end
     end
 
     private def evaluate_binary_op(expr : AST::BinaryOp) : Value
@@ -845,6 +949,18 @@ module Starlark
         min_val
       else
         raise "min() argument must be iterable"
+      end
+    end
+
+    private def augmented_to_binary(augmented_op : Symbol) : Symbol
+      case augmented_op
+      when :PLUSEQ       then :PLUS
+      when :MINUSEQ      then :MINUS
+      when :STAREQ       then :STAR
+      when :SLASHEQ      then :SLASH
+      when :PERCENTEQ    then :PERCENT
+      when :SLASHSLASHEQ then :SLASHSLASH
+      else                    raise "Unknown augmented operator: #{augmented_op}"
       end
     end
 

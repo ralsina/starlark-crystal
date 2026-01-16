@@ -367,7 +367,8 @@ module Starlark
 
       # Try to parse the left-hand side (identifier or tuple of identifiers)
       begin
-        left = parse_primary
+        # Parse primary with postfix to handle a[1], a.b, etc.
+        left = parse_postfix(parse_primary)
 
         # Check if this is an implicit tuple (a, b, c) without parentheses
         if left.is_a?(AST::Identifier)
@@ -394,9 +395,13 @@ module Starlark
         # Check if this is a list unpacking [a, b, c] = ...
         if left.is_a?(AST::List)
           list = left.as(AST::List)
-          # Check if all elements are identifiers (valid assignment targets)
-          all_identifiers = list.elements.all?(AST::Identifier)
-          if all_identifiers
+          # Check if all elements are valid assignment targets (identifiers or tuples/lists)
+          all_valid_targets = list.elements.all? do |elem|
+            elem.is_a?(AST::Identifier) ||
+            elem.is_a?(AST::TupleLiteral) ||
+            elem.is_a?(AST::List)
+          end
+          if all_valid_targets
             # Convert list to tuple for assignment purposes
             left = AST::TupleLiteral.new(list.elements)
           end
@@ -410,6 +415,19 @@ module Starlark
             advance
             value = parse_expression_or_tuple
             return AST::TupleAssign.new(left, value)
+          else
+            # Not an assignment, fall through
+            @pos = save_pos
+          end
+        elsif left.is_a?(AST::Index)
+          # Index assignment: a[0] = 5
+          tok = current_token
+          if !tok.nil? && (tok.type == :ASSIGN || augmented_assign_op?)
+            op = tok.type
+            advance
+            value = parse_expression
+            index_expr = left.as(AST::Index)
+            return AST::IndexAssign.new(index_expr.object, index_expr.index, value, op)
           else
             # Not an assignment, fall through
             @pos = save_pos

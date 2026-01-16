@@ -32,7 +32,8 @@
       "Bash(./bin/starlark)",
       "Bash(./bin/starlark:*)",
       "Bash(grep:*)",
-      "Bash(1)"
+      "Bash(1)",
+      "Bash(bin/starlark:*)"
     ]
   }
 }

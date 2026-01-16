@@ -186,6 +186,17 @@ module Starlark
       end
     end
 
+    # Index assignment: a[0] = 5
+    class IndexAssign < Stmt
+      getter object : Expr
+      getter index : Expr
+      getter value : Expr
+      getter op : Symbol # :ASSIGN or augmented like :PLUSEQ
+
+      def initialize(@object : Expr, @index : Expr, @value : Expr, @op = :ASSIGN)
+      end
+    end
+
     class Break < Stmt
     end
 
