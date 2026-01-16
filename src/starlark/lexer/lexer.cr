@@ -40,6 +40,9 @@ module Starlark
             tokens << read_number
           elsif char == '"' || char == '\''
             tokens << read_string
+          elsif char == '#'
+            # Comment - consume until end of line, don't emit token
+            consume_comment
           else
             tokens << read_operator_or_punctuation
           end
@@ -116,6 +119,14 @@ module Starlark
             @column += 1
           end
           @pos += 1
+        end
+      end
+
+      private def consume_comment
+        # Consume from # to end of line
+        while @pos < @source.size && current_char != '\n'
+          @pos += 1
+          @column += 1
         end
       end
 
