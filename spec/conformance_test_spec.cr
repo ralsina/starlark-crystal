@@ -11,16 +11,16 @@ module Starlark
   module ConformanceTestHelper
     # Features not yet supported - mark tests using these as pending
     UNSUPPORTED_FEATURES = [
-      "tuple assignment",    # a, b, c = 1, 2, 3
-      "list assignment",     # [a, b, c] = [1, 2, 3]
-      "index assignment",    # a[1] = 5
+      "tuple assignment",           # a, b, c = 1, 2, 3
+      "list assignment",            # [a, b, c] = [1, 2, 3]
+      "index assignment",           # a[1] = 5
       "augmented index assignment", # x[1] += 3
-      "lambda",              # lambda expressions
-      "recursion",           # recursive function calls
-      "kwargs dict unpacking", # **dict unpacking in function calls
-      "*args/**kwargs",       # variable function arguments
-      "nested function defs", # def inside def
-      "list comprehension",   # [f(x) for x in seq]
+      "lambda",                     # lambda expressions
+      "recursion",                  # recursive function calls
+      "kwargs dict unpacking",      # **dict unpacking in function calls
+      "*args/**kwargs",             # variable function arguments
+      "nested function defs",       # def inside def
+      "list comprehension",         # [f(x) for x in seq]
     ]
 
     # Parse test file into chunks separated by ---
@@ -51,22 +51,22 @@ module Starlark
       # Check for tuple assignment: a, b = ...
       if code =~ /\w+\s*,\s*\w+\s*=/
         {true, "tuple assignment"}
-      # Check for list assignment: [a, b] = ...
+        # Check for list assignment: [a, b] = ...
       elsif code =~ /\[\w+.*\]\s*=/
         {true, "list assignment"}
-      # Check for index assignment: x[y] = z
+        # Check for index assignment: x[y] = z
       elsif code =~ /\w+\[.*\]\s*[-+*\/%]?=\s*\w+/
         {true, "index assignment"}
-      # Check for lambda
+        # Check for lambda
       elsif code.includes?("lambda")
         {true, "lambda"}
-      # Check for *args or **kwargs
+        # Check for *args or **kwargs
       elsif code =~ /def\s+\w+\([^)]*\*/
         {true, "*args/**kwargs"}
-      # Check for list comprehension with function calls
+        # Check for list comprehension with function calls
       elsif code =~ /\[.*\s+for\s+\w+\s+in\s+.*\]/
         {true, "list comprehension"}
-      # Check for ternary if-else: x if condition else y
+        # Check for ternary if-else: x if condition else y
       elsif code =~ /.*\sif\s+.*\selse\s+/
         {true, "ternary if-else"}
       else
@@ -99,7 +99,7 @@ module Starlark
       # Evaluate each statement
       chunk.each do |line|
         next if line.empty? || line.starts_with?("#")
-        break if line.starts_with?("###")  # Stop at error expectation marker
+        break if line.starts_with?("###") # Stop at error expectation marker
 
         # Strip ### comments from the line
         line = line.split("###")[0].strip

@@ -56,6 +56,12 @@ module Starlark
       when :PASS
         advance
         AST::Pass.new
+      when :BREAK
+        advance
+        AST::Break.new
+      when :CONTINUE
+        advance
+        AST::Continue.new
       else
         expr = parse_expression
         AST::ExprStmt.new(expr)

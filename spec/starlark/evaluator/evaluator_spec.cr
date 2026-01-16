@@ -268,6 +268,16 @@ describe Starlark::Evaluator do
     evaluator.get_global("y").as_int.should eq(20)
   end
 
+  it "parses break and continue statements" do
+    parser = Starlark::Parser.new("break")
+    stmt = parser.parse_statement
+    stmt.should be_a(Starlark::AST::Break)
+
+    parser = Starlark::Parser.new("continue")
+    stmt = parser.parse_statement
+    stmt.should be_a(Starlark::AST::Continue)
+  end
+
   # Task 13: Crystal Integration API
   it "allows setting globals from Crystal" do
     evaluator = Starlark::Evaluator.new

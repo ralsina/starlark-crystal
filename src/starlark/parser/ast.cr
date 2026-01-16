@@ -175,5 +175,11 @@ module Starlark
       def initialize(@targets : TupleLiteral, @value)
       end
     end
+
+    class Break < Stmt
+    end
+
+    class Continue < Stmt
+    end
   end
 end

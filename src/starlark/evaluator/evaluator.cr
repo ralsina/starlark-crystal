@@ -5,6 +5,13 @@ module Starlark
   # Type alias for builtin functions
   alias BuiltinFunction = Array(Value) -> Value
 
+  # Control flow exceptions
+  class BreakException < Exception
+  end
+
+  class ContinueException < Exception
+  end
+
   class Evaluator
     @globals : Hash(String, Value)
     @builtins : Hash(String, BuiltinFunction)
@@ -110,6 +117,10 @@ module Starlark
         evaluate_def(stmt)
       when AST::Pass
         nil
+      when AST::Break
+        raise BreakException.new
+      when AST::Continue
+        raise ContinueException.new
       else
         raise "Unknown statement type: #{stmt.class}"
       end
@@ -141,7 +152,15 @@ module Starlark
       when "list"
         iterable.as_list.each do |item|
           @globals[var_name] = item
-          stmt.body.each { |statement| evaluate_stmt(statement) }
+          begin
+            stmt.body.each { |statement| evaluate_stmt(statement) }
+          rescue break_exc : BreakException
+            # Break out of the loop
+            break
+          rescue cont_exc : ContinueException
+            # Continue to next iteration
+            next
+          end
         end
       else
         raise "Cannot iterate over #{iterable.type}"

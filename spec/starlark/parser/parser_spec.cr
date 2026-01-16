@@ -148,4 +148,18 @@ describe Starlark::Parser do
 
     stmt.should be_a(Starlark::AST::TupleAssign)
   end
+
+  it "parses break statement" do
+    parser = Starlark::Parser.new("break")
+    stmt = parser.parse_statement
+
+    stmt.should be_a(Starlark::AST::Break)
+  end
+
+  it "parses continue statement" do
+    parser = Starlark::Parser.new("continue")
+    stmt = parser.parse_statement
+
+    stmt.should be_a(Starlark::AST::Continue)
+  end
 end

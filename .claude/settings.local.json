@@ -28,7 +28,10 @@
       "WebSearch",
       "Bash(git clone:*)",
       "Bash(ls:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(./bin/starlark)",
+      "Bash(./bin/starlark:*)",
+      "Bash(grep:*)"
     ]
   }
 }
