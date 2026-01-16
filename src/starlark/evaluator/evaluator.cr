@@ -343,7 +343,14 @@ module Starlark
       case expr.op
       when :PLUS then evaluate_plus(left_val, right_val)
       when :STAR then evaluate_star(left_val, right_val)
-      when :MINUS, :SLASH, :PERCENT, :SLASHSLASH
+      when :PERCENT
+        # String formatting: "format" % values
+        if left_val.type == "string"
+          evaluate_string_format(left_val, right_val)
+        else
+          evaluate_arithmetic(left_val, right_val, expr.op)
+        end
+      when :MINUS, :SLASH, :SLASHSLASH
         evaluate_arithmetic(left_val, right_val, expr.op)
       when :EQEQ   then evaluate_equality(left_val, right_val)
       when :BANGEQ then evaluate_inequality(left_val, right_val)
@@ -418,6 +425,98 @@ module Starlark
       else
         raise "Cannot multiply #{left.type} and #{right.type}"
       end
+    end
+
+    private def evaluate_string_format(format_str : Value, values : Value) : Value
+      format = format_str.as_string
+
+      # Extract values from tuple/list or use single value
+      value_list = case values.type
+                   when "tuple", "list"
+                     values.as_list
+                   else
+                     [values] of Value
+                   end
+
+      result = format.gsub(/%./) do |specifier|
+        case specifier
+        when "%%"
+          "%"
+        when "%d"
+          if value_list.empty?
+            raise "Not enough arguments for format string"
+          end
+          val = value_list.shift
+          case val.type
+          when "int" then val.as_int.to_s
+          else
+            raise "%d format requires integer, got #{val.type}"
+          end
+        when "%s"
+          if value_list.empty?
+            raise "Not enough arguments for format string"
+          end
+          val = value_list.shift
+          case val.type
+          when "string" then val.as_string
+          when "int" then val.as_int.to_s
+          when "bool" then val.as_bool.to_s
+          else
+            val.to_s
+          end
+        when "%r"
+          if value_list.empty?
+            raise "Not enough arguments for format string"
+          end
+          val = value_list.shift
+          # %r uses repr-style formatting
+          case val.type
+          when "string"
+            "\"#{val.as_string}\""
+          when "int"
+            val.as_int.to_s
+          else
+            val.to_s
+          end
+        when "%x"
+          if value_list.empty?
+            raise "Not enough arguments for format string"
+          end
+          val = value_list.shift
+          case val.type
+          when "int" then val.as_int.to_s(16)
+          else
+            raise "%x format requires integer, got #{val.type}"
+          end
+        when "%c"
+          if value_list.empty?
+            raise "Not enough arguments for format string"
+          end
+          val = value_list.shift
+          case val.type
+          when "int"
+            # Convert int to character
+            val.as_int.chr
+          when "string"
+            str = val.as_string
+            if str.size != 1
+              raise "%c requires a single-character string"
+            end
+            str
+          else
+            raise "%c format requires integer or string, got #{val.type}"
+          end
+        else
+          # Unknown format specifier - just pass through
+          specifier
+        end
+      end
+
+      if value_list.size > 0
+        raise "Not all arguments consumed during string formatting"
+      end
+
+      Value.new(result)
     end
 
     private def evaluate_arithmetic(left : Value, right : Value, op : Symbol) : Value
