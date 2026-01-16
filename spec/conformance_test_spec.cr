@@ -92,6 +92,7 @@ module Starlark
           if x == y:
             print(\"assert_ne failed: %r == %r\" % (x, y))
       "
+
       evaluator.eval_stmt(assertions)
 
       output = [] of String
@@ -99,11 +100,9 @@ module Starlark
       # Evaluate each statement
       chunk.each do |line|
         next if line.empty? || line.starts_with?("#")
-        break if line.starts_with?("###") # Stop at error expectation marker
 
-        # Strip ### comments from the line
-        line = line.split("###")[0].strip
-        next if line.empty?
+        # Skip lines with ### (these document expected errors)
+        next if line.includes?("###")
 
         begin
           result = evaluator.eval_stmt(line)

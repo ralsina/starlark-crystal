@@ -186,6 +186,12 @@ module Starlark
           elements = [expr]
           while !tok.nil? && tok.type == :COMMA
             advance
+            # Check if next token is RPAREN (trailing comma)
+            tok = current_token
+            if !tok.nil? && tok.type == :RPAREN
+              # Trailing comma, don't parse another element
+              break
+            end
             elements << parse_expression
             tok = current_token
           end
@@ -205,6 +211,11 @@ module Starlark
           comma_tok = current_token
           while !comma_tok.nil? && comma_tok.type == :COMMA
             advance
+            # Check for trailing comma
+            comma_tok = current_token
+            if !comma_tok.nil? && comma_tok.type == :RBRACKET
+              break
+            end
             elements << parse_expression
             comma_tok = current_token
           end
