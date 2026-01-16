@@ -172,10 +172,10 @@ module Starlark
           @globals[var_name] = item
           begin
             stmt.body.each { |statement| evaluate_stmt(statement) }
-          rescue break_exc : BreakException
+          rescue BreakException
             # Break out of the loop
             break
-          rescue cont_exc : ContinueException
+          rescue ContinueException
             # Continue to next iteration
             next
           end
@@ -508,6 +508,10 @@ module Starlark
       @builtins["dict"] = ->builtin_dict(Array(Value))
       @builtins["tuple"] = ->builtin_tuple(Array(Value))
       @builtins["fail"] = ->builtin_fail(Array(Value))
+      @builtins["all"] = ->builtin_all(Array(Value))
+      @builtins["any"] = ->builtin_any(Array(Value))
+      @builtins["max"] = ->builtin_max(Array(Value))
+      @builtins["min"] = ->builtin_min(Array(Value))
     end
 
     private def builtin_len(args : Array(Value)) : Value
@@ -717,6 +721,131 @@ module Starlark
                 end
 
       raise "fail: #{message}"
+    end
+
+    private def builtin_all(args : Array(Value)) : Value
+      if args.size != 1
+        raise "all() takes exactly 1 argument (#{args.size} given)"
+      end
+
+      arg = args[0]
+      case arg.type
+      when "list"
+        arg.as_list.each do |item|
+          return Value.new(false) unless item.truth
+        end
+        Value.new(true)
+      when "tuple"
+        arg.as_list.each do |item|
+          return Value.new(false) unless item.truth
+        end
+        Value.new(true)
+      else
+        raise "all() argument must be iterable"
+      end
+    end
+
+    private def builtin_any(args : Array(Value)) : Value
+      if args.size != 1
+        raise "any() takes exactly 1 argument (#{args.size} given)"
+      end
+
+      arg = args[0]
+      case arg.type
+      when "list"
+        arg.as_list.each do |item|
+          return Value.new(true) if item.truth
+        end
+        Value.new(false)
+      when "tuple"
+        arg.as_list.each do |item|
+          return Value.new(true) if item.truth
+        end
+        Value.new(false)
+      else
+        raise "any() argument must be iterable"
+      end
+    end
+
+    private def builtin_max(args : Array(Value)) : Value
+      if args.size != 1
+        raise "max() takes exactly 1 argument (#{args.size} given)"
+      end
+
+      arg = args[0]
+      case arg.type
+      when "list"
+        list = arg.as_list
+        if list.empty?
+          raise "max() arg is an empty sequence"
+        end
+        max_val = list[0]
+        list.each do |item|
+          # Only support int comparison for now
+          if item.type == "int" && max_val.type == "int"
+            if item.as_int > max_val.as_int
+              max_val = item
+            end
+          end
+        end
+        max_val
+      when "tuple"
+        list = arg.as_list
+        if list.empty?
+          raise "max() arg is an empty sequence"
+        end
+        max_val = list[0]
+        list.each do |item|
+          if item.type == "int" && max_val.type == "int"
+            if item.as_int > max_val.as_int
+              max_val = item
+            end
+          end
+        end
+        max_val
+      else
+        raise "max() argument must be iterable"
+      end
+    end
+
+    private def builtin_min(args : Array(Value)) : Value
+      if args.size != 1
+        raise "min() takes exactly 1 argument (#{args.size} given)"
+      end
+
+      arg = args[0]
+      case arg.type
+      when "list"
+        list = arg.as_list
+        if list.empty?
+          raise "min() arg is an empty sequence"
+        end
+        min_val = list[0]
+        list.each do |item|
+          if item.type == "int" && min_val.type == "int"
+            if item.as_int < min_val.as_int
+              min_val = item
+            end
+          end
+        end
+        min_val
+      when "tuple"
+        list = arg.as_list
+        if list.empty?
+          raise "min() arg is an empty sequence"
+        end
+        min_val = list[0]
+        list.each do |item|
+          if item.type == "int" && min_val.type == "int"
+            if item.as_int < min_val.as_int
+              min_val = item
+            end
+          end
+        end
+        min_val
+      else
+        raise "min() argument must be iterable"
+      end
     end
 
     private def evaluate_dict(expr : AST::Dict) : Value
