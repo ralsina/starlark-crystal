@@ -95,6 +95,9 @@ module Starlark
         value = evaluate_expr(stmt.value).freeze
         @globals[stmt.target.as(AST::Identifier).name] = value
         nil
+      when AST::TupleAssign
+        evaluate_tuple_assign(stmt)
+        nil
       when AST::ExprStmt
         evaluate_expr(stmt.expr).freeze
       when AST::If
@@ -160,6 +163,36 @@ module Starlark
       closure = Closure.new(stmt.params, stmt.body, @globals.dup)
       @globals[stmt.name] = Value.new(closure)
       nil
+    end
+
+    private def evaluate_tuple_assign(stmt : AST::TupleAssign) : Value?
+      # Evaluate the right-hand side value
+      value = evaluate_expr(stmt.value)
+
+      # Ensure the value is a tuple or list
+      unless value.type == "tuple" || value.type == "list"
+        raise "Cannot unpack non-iterable type: #{value.type}"
+      end
+
+      elements = value.as_list
+      targets = stmt.targets.elements
+
+      # Check that the number of targets matches the number of values
+      unless targets.size == elements.size
+        raise "Unpacking error: #{targets.size} targets but #{elements.size} values"
+      end
+
+      # Assign each element to its corresponding target
+      targets.each_with_index do |target_expr, index|
+        case target_expr
+        when AST::Identifier
+          @globals[target_expr.name] = elements[index]
+        else
+          raise "Tuple assignment target must be an identifier, got #{target_expr.class}"
+        end
+      end
+
+      Value.none
     end
 
     private def evaluate_binary_op(expr : AST::BinaryOp) : Value

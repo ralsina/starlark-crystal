@@ -216,6 +216,58 @@ describe Starlark::Evaluator do
     result.as_list.map(&.as_int).should eq([1, 2, 3])
   end
 
+  it "evaluates tuple unpacking from tuple literal" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.eval_stmt("(a, b) = (1, 2)")
+    evaluator.get_global("a").as_int.should eq(1)
+    evaluator.get_global("b").as_int.should eq(2)
+  end
+
+  it "evaluates tuple unpacking from list literal" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.eval_stmt("(x, y, z) = [10, 20, 30]")
+    evaluator.get_global("x").as_int.should eq(10)
+    evaluator.get_global("y").as_int.should eq(20)
+    evaluator.get_global("z").as_int.should eq(30)
+  end
+
+  it "evaluates tuple unpacking from expression" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.eval_stmt("(i, j) = (5 + 5, 3 * 4)")
+    evaluator.get_global("i").as_int.should eq(10)
+    evaluator.get_global("j").as_int.should eq(12)
+  end
+
+  it "evaluates implicit tuple unpacking (no parentheses)" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.eval_stmt("a, b, c = 1, 2, 3")
+    evaluator.get_global("a").as_int.should eq(1)
+    evaluator.get_global("b").as_int.should eq(2)
+    evaluator.get_global("c").as_int.should eq(3)
+  end
+
+  it "evaluates implicit tuple unpacking with expressions" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.eval_stmt("x, y = 10 + 5, 3 * 4")
+    evaluator.get_global("x").as_int.should eq(15)
+    evaluator.get_global("y").as_int.should eq(12)
+  end
+
+  it "evaluates list unpacking" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.eval_stmt("[a, b, c] = [1, 2, 3]")
+    evaluator.get_global("a").as_int.should eq(1)
+    evaluator.get_global("b").as_int.should eq(2)
+    evaluator.get_global("c").as_int.should eq(3)
+  end
+
+  it "evaluates list unpacking from tuple" do
+    evaluator = Starlark::Evaluator.new
+    evaluator.eval_stmt("[x, y] = (10, 20)")
+    evaluator.get_global("x").as_int.should eq(10)
+    evaluator.get_global("y").as_int.should eq(20)
+  end
+
   # Task 13: Crystal Integration API
   it "allows setting globals from Crystal" do
     evaluator = Starlark::Evaluator.new

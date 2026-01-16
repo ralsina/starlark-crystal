@@ -167,5 +167,13 @@ module Starlark
 
     class Pass < Stmt
     end
+
+    class TupleAssign < Stmt
+      getter targets : TupleLiteral
+      getter value : Expr
+
+      def initialize(@targets : TupleLiteral, @value)
+      end
+    end
   end
 end

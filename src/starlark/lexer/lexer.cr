@@ -81,8 +81,6 @@ module Starlark
 
           # Check if next token is "in"
           next_chars = [] of Char
-          start_line_in = @line
-          start_column_in = @column
           while @pos < @source.size && (current_char.ascii_alphanumeric? || current_char == '_')
             next_chars << current_char
             advance

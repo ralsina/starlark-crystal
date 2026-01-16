@@ -15,6 +15,26 @@ module Starlark
       parse_not
     end
 
+    # Parse an expression that may be an implicit tuple (comma-separated)
+    # This is used for tuple assignment right-hand sides: a, b = 1, 2
+    private def parse_expression_or_tuple : AST::Expr
+      first = parse_expression
+      tok = current_token
+
+      if !tok.nil? && tok.type == :COMMA
+        # Implicit tuple: 1, 2, 3
+        elements = [first] of AST::Expr
+        while !tok.nil? && tok.type == :COMMA
+          advance
+          elements << parse_expression
+          tok = current_token
+        end
+        AST::TupleLiteral.new(elements)
+      else
+        first
+      end
+    end
+
     def parse_statement : AST::Stmt
       token = current_token
 
@@ -23,7 +43,7 @@ module Starlark
       end
 
       case token.type
-      when :IDENTIFIER
+      when :IDENTIFIER, :LPAREN, :LBRACKET
         parse_assignment_or_expr_stmt
       when :IF
         parse_if
@@ -91,10 +111,10 @@ module Starlark
       tok = current_token
       if !tok.nil? && tok.type == :NOT
         advance
-        expr = parse_not  # right-associative
+        expr = parse_not # right-associative
         AST::UnaryOp.new(:NOT, expr)
       else
-        parse_binary_op(3)  # Start at comparison precedence
+        parse_binary_op(3) # Start at comparison precedence
       end
     end
 
@@ -303,10 +323,56 @@ module Starlark
       # Look ahead to see if this is an assignment
       save_pos = @pos
 
-      # Try to parse just a primary expression (identifier) for assignment target
+      # Try to parse the left-hand side (identifier or tuple of identifiers)
       begin
         left = parse_primary
+
+        # Check if this is an implicit tuple (a, b, c) without parentheses
         if left.is_a?(AST::Identifier)
+          tok = current_token
+          if !tok.nil? && tok.type == :COMMA
+            # Implicit tuple: a, b, c = ...
+            elements = [left] of AST::Expr
+            while !tok.nil? && tok.type == :COMMA
+              advance
+              # Parse next element - must be an identifier for valid assignment target
+              elem = parse_primary
+              unless elem.is_a?(AST::Identifier)
+                raise "Tuple assignment target must be identifiers"
+              end
+              elements << elem
+              tok = current_token
+            end
+
+            # Create an implicit tuple
+            left = AST::TupleLiteral.new(elements)
+          end
+        end
+
+        # Check if this is a list unpacking [a, b, c] = ...
+        if left.is_a?(AST::List)
+          list = left.as(AST::List)
+          # Check if all elements are identifiers (valid assignment targets)
+          all_identifiers = list.elements.all?(AST::Identifier)
+          if all_identifiers
+            # Convert list to tuple for assignment purposes
+            left = AST::TupleLiteral.new(list.elements)
+          end
+        end
+
+        # Check if this is a tuple assignment like (a, b) = ... or a, b = ...
+        if left.is_a?(AST::TupleLiteral)
+          tok = current_token
+          if !tok.nil? && tok.type == :ASSIGN
+            # Tuple unpacking assignment
+            advance
+            value = parse_expression_or_tuple
+            return AST::TupleAssign.new(left, value)
+          else
+            # Not an assignment, fall through
+            @pos = save_pos
+          end
+        elsif left.is_a?(AST::Identifier)
           tok = current_token
           if !tok.nil? && (tok.type == :ASSIGN || augmented_assign_op?)
             # Assignment
@@ -322,14 +388,20 @@ module Starlark
               binary_expr = AST::BinaryOp.new(left, inner_op, value)
               return AST::Assign.new(left, binary_expr)
             end
+          else
+            # Not an assignment, fall through
+            @pos = save_pos
           end
+        else
+          # Not a valid assignment target, fall through
+          @pos = save_pos
         end
       rescue
         # Not a valid assignment target, fall through to expression statement
+        @pos = save_pos
       end
 
       # Expression statement
-      @pos = save_pos
       expr = parse_expression
       AST::ExprStmt.new(expr)
     end

@@ -104,4 +104,48 @@ describe Starlark::Parser do
 
     stmt.should be_a(Starlark::AST::Def)
   end
+
+  it "parses tuple unpacking from tuple literal" do
+    parser = Starlark::Parser.new("(a, b) = (1, 2)")
+    stmt = parser.parse_statement
+
+    stmt.should be_a(Starlark::AST::TupleAssign)
+  end
+
+  it "parses tuple unpacking from list literal" do
+    parser = Starlark::Parser.new("(x, y, z) = [10, 20, 30]")
+    stmt = parser.parse_statement
+
+    stmt.should be_a(Starlark::AST::TupleAssign)
+  end
+
+  it "parses implicit tuple unpacking without parentheses" do
+    parser = Starlark::Parser.new("a, b, c = 1, 2, 3")
+    stmt = parser.parse_statement
+
+    stmt.should be_a(Starlark::AST::TupleAssign)
+    stmt.as(Starlark::AST::TupleAssign).targets.elements.size.should eq(3)
+  end
+
+  it "parses implicit tuple unpacking with expressions" do
+    parser = Starlark::Parser.new("x, y = 10 + 5, 3 * 4")
+    stmt = parser.parse_statement
+
+    stmt.should be_a(Starlark::AST::TupleAssign)
+  end
+
+  it "parses list unpacking" do
+    parser = Starlark::Parser.new("[a, b, c] = [1, 2, 3]")
+    stmt = parser.parse_statement
+
+    stmt.should be_a(Starlark::AST::TupleAssign)
+    stmt.as(Starlark::AST::TupleAssign).targets.elements.size.should eq(3)
+  end
+
+  it "parses list unpacking from tuple" do
+    parser = Starlark::Parser.new("[x, y] = (10, 20)")
+    stmt = parser.parse_statement
+
+    stmt.should be_a(Starlark::AST::TupleAssign)
+  end
 end
