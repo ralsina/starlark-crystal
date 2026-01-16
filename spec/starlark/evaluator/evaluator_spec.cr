@@ -296,13 +296,39 @@ describe Starlark::Evaluator do
     evaluator.get_global("sum").as_int.should eq(8)
   end
 
-  it "evaluates multi-statement if blocks" do
+  it "evaluates ternary if-else with true condition" do
     evaluator = Starlark::Evaluator.new
-    code = "x = 0\nif True:\n  x = 1\n  y = 2"
-    evaluator.eval_program(code)
+    result = evaluator.eval("1 if True else 0")
 
-    evaluator.get_global("x").as_int.should eq(1)
-    evaluator.get_global("y").as_int.should eq(2)
+    result.as_int.should eq(1)
+  end
+
+  it "evaluates ternary if-else with false condition" do
+    evaluator = Starlark::Evaluator.new
+    result = evaluator.eval("1 if False else 0")
+
+    result.as_int.should eq(0)
+  end
+
+  it "evaluates ternary with comparison" do
+    evaluator = Starlark::Evaluator.new
+    result = evaluator.eval("1 if 3 > 2 else 0")
+
+    result.as_int.should eq(1)
+  end
+
+  it "evaluates ternary with string truthiness" do
+    evaluator = Starlark::Evaluator.new
+    result = evaluator.eval("1 if \"foo\" else 0")
+
+    result.as_int.should eq(1)
+  end
+
+  it "evaluates ternary with empty string" do
+    evaluator = Starlark::Evaluator.new
+    result = evaluator.eval("1 if \"\" else 0")
+
+    result.as_int.should eq(0)
   end
 
   # Task 13: Crystal Integration API

@@ -162,4 +162,11 @@ describe Starlark::Parser do
 
     stmt.should be_a(Starlark::AST::Continue)
   end
+
+  it "parses ternary if-else expression" do
+    parser = Starlark::Parser.new("1 if True else 0")
+    expr = parser.parse_expression
+
+    expr.should be_a(Starlark::AST::IfExpr)
+  end
 end

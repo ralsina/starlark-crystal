@@ -62,6 +62,16 @@ module Starlark
       end
     end
 
+    # Ternary if-else expression: value_if if condition else value_else
+    class IfExpr < Expr
+      getter condition : Expr
+      getter then_expr : Expr
+      getter else_expr : Expr
+
+      def initialize(@condition, @then_expr, @else_expr)
+      end
+    end
+
     # List literal
     class List < Expr
       getter elements : Array(Expr)

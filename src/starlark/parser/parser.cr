@@ -12,7 +12,32 @@ module Starlark
     end
 
     def parse_expression : AST::Expr
-      parse_not
+      parse_ternary_if_else
+    end
+
+    # Parse ternary if-else: value_if if condition else value_else
+    # This has the lowest precedence of all expressions
+    private def parse_ternary_if_else : AST::Expr
+      left = parse_not
+
+      # Check if this is a ternary expression
+      tok = current_token
+      if !tok.nil? && tok.type == :IF
+        advance
+        condition = parse_not
+
+        # Expect 'else'
+        tok = current_token
+        if tok.nil? || tok.type != :ELSE
+          raise "Expected 'else' in ternary expression"
+        end
+        advance
+
+        right_else = parse_not
+        AST::IfExpr.new(condition, left, right_else)
+      else
+        left
+      end
     end
 
     # Parse an expression that may be an implicit tuple (comma-separated)

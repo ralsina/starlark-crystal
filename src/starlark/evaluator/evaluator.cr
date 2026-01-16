@@ -95,6 +95,8 @@ module Starlark
         evaluate_binary_op(expr)
       when AST::UnaryOp
         evaluate_unary_op(expr)
+      when AST::IfExpr
+        evaluate_if_expr(expr)
       when AST::List
         evaluate_list(expr)
       when AST::Dict
@@ -273,6 +275,16 @@ module Starlark
         Value.new(!operand_val.truth)
       else
         raise "Unknown unary operator: #{expr.op}"
+      end
+    end
+
+    private def evaluate_if_expr(expr : AST::IfExpr) : Value
+      # value_if if condition else value_else
+      # Note: In Starlark, the syntax is: <then_value> if <condition> else <else_value>
+      if evaluate_expr(expr.condition).truth
+        evaluate_expr(expr.then_expr)
+      else
+        evaluate_expr(expr.else_expr)
       end
     end
 
