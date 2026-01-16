@@ -278,6 +278,33 @@ describe Starlark::Evaluator do
     stmt.should be_a(Starlark::AST::Continue)
   end
 
+  it "evaluates multi-statement blocks in for loop with break" do
+    evaluator = Starlark::Evaluator.new
+    code = "y = 0\nfor x in [1, 2, 3, 4, 5]:\n  if x == 3:\n    break\n  y = x"
+    evaluator.eval_program(code)
+
+    # Should stop at x=3, so y stays at 2
+    evaluator.get_global("y").as_int.should eq(2)
+  end
+
+  it "evaluates multi-statement blocks in for loop with continue" do
+    evaluator = Starlark::Evaluator.new
+    code = "sum = 0\nfor x in [1, 2, 3, 4]:\n  if x == 2:\n    continue\n  sum = sum + x"
+    evaluator.eval_program(code)
+
+    # Should skip 2, so sum = 1 + 3 + 4 = 8
+    evaluator.get_global("sum").as_int.should eq(8)
+  end
+
+  it "evaluates multi-statement if blocks" do
+    evaluator = Starlark::Evaluator.new
+    code = "x = 0\nif True:\n  x = 1\n  y = 2"
+    evaluator.eval_program(code)
+
+    evaluator.get_global("x").as_int.should eq(1)
+    evaluator.get_global("y").as_int.should eq(2)
+  end
+
   # Task 13: Crystal Integration API
   it "allows setting globals from Crystal" do
     evaluator = Starlark::Evaluator.new

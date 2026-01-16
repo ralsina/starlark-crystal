@@ -32,19 +32,35 @@ module Starlark
 
     def eval_file(path : String) : Value?
       source = File.read(path)
-      eval_multi(source)
+      eval_program(source)
     end
 
     def eval_multi(source : String) : Value?
-      lines = source.split('\n')
+      # Parse and execute all statements in the source
+      parser = Parser.new(source)
       result = nil
-      lines.each do |line|
-        line = line.strip
-        if !line.empty?
-          result = eval_stmt(line)
+
+      loop do
+        begin
+          stmt = parser.parse_statement
+          result = evaluate_stmt(stmt)
+        rescue e : Exception
+          # If we hit EOF or end of input, that's expected
+          msg = e.message || ""
+          if msg.includes?("Unexpected end of input") || msg.includes?("Unexpected token") || msg.includes?("Expected")
+            break
+          else
+            raise e
+          end
         end
       end
+
       result
+    end
+
+    # Parse and execute a complete program with multiple statements
+    def eval_program(source : String) : Value?
+      eval_multi(source)
     end
 
     def eval(source : String) : Value

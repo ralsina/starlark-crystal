@@ -527,10 +527,49 @@ module Starlark
     end
 
     private def parse_block : Array(AST::Stmt)
-      # Simple block parsing: one statement
-      # Full indentation-based parsing is deferred
+      # Parse multiple statements based on indentation
       stmts = [] of AST::Stmt
-      stmts << parse_statement
+
+      # Get the indentation of the first statement in the block
+      # The block starts after a colon, so the next statement determines the base indentation
+      if @pos >= @tokens.size
+        return stmts
+      end
+
+      # Skip to the first statement to get base indentation
+      base_indent = nil
+      scan_pos = @pos
+
+      # Find the first non-EOF token to determine base indentation
+      while scan_pos < @tokens.size
+        tok = @tokens[scan_pos]
+        break if tok.type != :EOF
+        scan_pos += 1
+      end
+
+      if scan_pos < @tokens.size
+        base_indent = @tokens[scan_pos].column
+      else
+        # No more tokens, return empty block
+        return stmts
+      end
+
+      # Now parse statements at this indentation level or deeper
+      while @pos < @tokens.size
+        tok = current_token
+        break if tok.nil? || tok.type == :EOF
+
+        current_indent = tok.column
+
+        # If indentation is less than base, we're done with this block
+        if current_indent < base_indent
+          break
+        end
+
+        # Parse the statement
+        stmts << parse_statement
+      end
+
       stmts
     end
   end
